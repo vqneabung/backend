@@ -28,7 +28,7 @@ dependencies {
 	implementation("tools.jackson.module:jackson-module-kotlin")
 	compileOnly("org.projectlombok:lombok")
 	developmentOnly("org.springframework.boot:spring-boot-devtools")
-	runtimeOnly("org.postgresql:postgresql")
+	runtimeOnly("com.microsoft.sqlserver:mssql-jdbc")
 	annotationProcessor("org.projectlombok:lombok")
 	testImplementation("org.springframework.boot:spring-boot-starter-data-jpa-test")
 	testImplementation("org.springframework.boot:spring-boot-starter-security-test")
@@ -38,6 +38,8 @@ dependencies {
 	testCompileOnly("org.projectlombok:lombok")
 	testRuntimeOnly("org.junit.platform:junit-platform-launcher")
 	testAnnotationProcessor("org.projectlombok:lombok")
+	// Source: https://mvnrepository.com/artifact/com.scalar.maven/scalar-webmvc
+	implementation("com.scalar.maven:scalar-webmvc:0.6.37")
 }
 
 kotlin {
