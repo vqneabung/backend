@@ -29,6 +29,9 @@ dependencies {
 	compileOnly("org.projectlombok:lombok")
 	developmentOnly("org.springframework.boot:spring-boot-devtools")
 	runtimeOnly("com.microsoft.sqlserver:mssql-jdbc")
+	implementation("io.jsonwebtoken:jjwt-api:0.12.6")
+	runtimeOnly("io.jsonwebtoken:jjwt-impl:0.12.6")
+	runtimeOnly("io.jsonwebtoken:jjwt-jackson:0.12.6")
 	annotationProcessor("org.projectlombok:lombok")
 	testImplementation("org.springframework.boot:spring-boot-starter-data-jpa-test")
 	testImplementation("org.springframework.boot:spring-boot-starter-security-test")
@@ -38,8 +41,10 @@ dependencies {
 	testCompileOnly("org.projectlombok:lombok")
 	testRuntimeOnly("org.junit.platform:junit-platform-launcher")
 	testAnnotationProcessor("org.projectlombok:lombok")
-	// Source: https://mvnrepository.com/artifact/com.scalar.maven/scalar-webmvc
+	// Scalar API Documentation
 	implementation("com.scalar.maven:scalar-webmvc:0.6.37")
+	// SpringDoc OpenAPI - auto-generates OpenAPI spec from controllers
+	implementation("org.springdoc:springdoc-openapi-starter-webmvc-ui:2.8.8")
 }
 
 kotlin {
