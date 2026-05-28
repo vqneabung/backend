@@ -24,7 +24,8 @@ class AuthController(
 ) {
     @Operation(
         summary = "Đăng ký tài khoản mới",
-        description = "Tạo tài khoản mới và trả về JWT token"
+        description = "Tạo tài khoản mới và trả về JWT token",
+        security = []
     )
     @ApiResponses(value = [
         SwaggerApiResponse(responseCode = "200", description = "Đăng ký thành công"),
@@ -39,7 +40,8 @@ class AuthController(
 
     @Operation(
         summary = "Đăng nhập",
-        description = "Xác thực email và mật khẩu, trả về JWT token"
+        description = "Xác thực email và mật khẩu, trả về JWT token",
+        security = []
     )
     @ApiResponses(value = [
         SwaggerApiResponse(responseCode = "200", description = "Đăng nhập thành công"),

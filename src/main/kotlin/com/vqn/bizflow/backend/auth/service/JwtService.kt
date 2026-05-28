@@ -1,11 +1,15 @@
 package com.vqn.bizflow.backend.auth.service
 
-import io.jsonwebtoken.Jwts
-import io.jsonwebtoken.security.Keys
+import com.nimbusds.jose.JWSAlgorithm
+import com.nimbusds.jose.JWSHeader
+import com.nimbusds.jose.crypto.MACSigner
+import com.nimbusds.jwt.JWTClaimsSet
+import com.nimbusds.jwt.SignedJWT
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.stereotype.Service
-import java.util.Base64
+import java.util.Date
 import javax.crypto.SecretKey
+import javax.crypto.spec.SecretKeySpec
 
 @Service
 class JwtService(
@@ -13,57 +17,25 @@ class JwtService(
     @Value("\${jwt.expiration}") private val expiration: Long
 ) {
     private val signingKey: SecretKey by lazy {
-        Keys.hmacShaKeyFor(Base64.getDecoder().decode(secretKey))
+        val keyBytes = secretKey.toByteArray()
+        SecretKeySpec(keyBytes, "HmacSHA256")
     }
 
     fun generateToken(userId: Long, email: String, role: String): String {
-        return Jwts.builder()
+        val signer = MACSigner(signingKey)
+
+        val claimsSet = JWTClaimsSet.Builder()
             .subject(userId.toString())
             .claim("email", email)
             .claim("role", role)
-            .issuedAt(java.util.Date())
-            .expiration(java.util.Date(System.currentTimeMillis() + expiration))
-            .signWith(signingKey)
-            .compact()
-    }
-
-    fun extractUserId(token: String): Long {
-        return Jwts.parser()
-            .verifyWith(signingKey)
+            .issueTime(Date())
+            .expirationTime(Date(System.currentTimeMillis() + expiration))
             .build()
-            .parseSignedClaims(token)
-            .payload
-            .subject
-            .toLong()
+
+        val signedJWT = SignedJWT(JWSHeader(JWSAlgorithm.HS256), claimsSet)
+        signedJWT.sign(signer)
+        return signedJWT.serialize()
     }
 
-    fun extractEmail(token: String): String {
-        return Jwts.parser()
-            .verifyWith(signingKey)
-            .build()
-            .parseSignedClaims(token)
-            .payload
-            .get("email", String::class.java)
-    }
-
-    fun extractRole(token: String): String {
-        return Jwts.parser()
-            .verifyWith(signingKey)
-            .build()
-            .parseSignedClaims(token)
-            .payload
-            .get("role", String::class.java)
-    }
-
-    fun isTokenValid(token: String): Boolean {
-        return try {
-            Jwts.parser()
-                .verifyWith(signingKey)
-                .build()
-                .parseSignedClaims(token)
-            true
-        } catch (e: Exception) {
-            false
-        }
-    }
+    fun retrieveSigningKey(): SecretKey = signingKey
 }
