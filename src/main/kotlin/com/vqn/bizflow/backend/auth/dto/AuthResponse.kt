@@ -11,5 +11,8 @@ data class AuthResponse(
     val email: String,
 
     @field:Schema(description = "Vai trò người dùng", example = "USER", allowableValues = ["USER", "ADMIN"])
-    val role: String
+    val role: String,
+
+    @field:Schema(description = "Tên người dùng", example = "Nguyen Van A")
+    val name: String? = null
 )

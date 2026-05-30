@@ -46,6 +46,9 @@ dependencies {
 	// Flyway Database Migration
 	runtimeOnly("org.flywaydb:flyway-core")
 	runtimeOnly("org.flywaydb:flyway-sqlserver")
+	// Spring Authorization Server
+	implementation("org.springframework.boot:spring-boot-starter-oauth2-authorization-server")
+	implementation("org.springframework.boot:spring-boot-starter-thymeleaf")
 }
 
 kotlin {

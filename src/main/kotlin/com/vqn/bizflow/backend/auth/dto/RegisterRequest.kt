@@ -18,5 +18,10 @@ data class RegisterRequest(
     val password: String,
 
     @field:Schema(description = "Vai trò người dùng (USER hoặc ADMIN)", example = "USER", allowableValues = ["USER", "ADMIN"])
-    val role: String? = null
+    val role: String? = null,
+
+    // Tên hiển thị — optional, dùng cho OIDC "profile" scope
+    // Nếu không cung cấp, id_token và access_token sẽ không có "name" claim
+    @field:Schema(description = "Tên người dùng (không bắt buộc)", example = "Nguyen Van A")
+    val name: String? = null
 )

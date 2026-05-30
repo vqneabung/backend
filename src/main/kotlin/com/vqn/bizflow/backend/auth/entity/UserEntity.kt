@@ -27,6 +27,11 @@ class UserEntity(
     @Column(nullable = false)
     val role: Role = Role.USER,
 
+    // Tên hiển thị của user — dùng cho OIDC "profile" scope
+    // Nullable: không bắt buộc khi register (có thể cập nhật sau)
+    @Column(nullable = true)
+    val name: String? = null,
+
     @Column(nullable = false, updatable = false)
     val createdAt: Instant = Instant.now()
 )

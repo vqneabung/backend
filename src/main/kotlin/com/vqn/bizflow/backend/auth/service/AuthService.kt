@@ -33,7 +33,8 @@ class AuthService(
         val user = UserEntity(
             email = request.email,
             password = hashedPassword,
-            role = role
+            role = role,
+            name = request.name
         )
 
         val savedUser = userRepository.save(user)
@@ -47,7 +48,8 @@ class AuthService(
         return AuthResponse(
             token = token,
             email = savedUser.email,
-            role = savedUser.role.name
+            role = savedUser.role.name,
+            name = savedUser.name
         )
     }
 
@@ -68,7 +70,8 @@ class AuthService(
         return AuthResponse(
             token = token,
             email = user.email,
-            role = user.role.name
+            role = user.role.name,
+            name = user.name
         )
     }
 }

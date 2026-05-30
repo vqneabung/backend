@@ -1,41 +1,35 @@
 package com.vqn.bizflow.backend.auth.service
 
-import com.nimbusds.jose.JWSAlgorithm
-import com.nimbusds.jose.JWSHeader
-import com.nimbusds.jose.crypto.MACSigner
-import com.nimbusds.jwt.JWTClaimsSet
-import com.nimbusds.jwt.SignedJWT
+import com.nimbusds.jose.jwk.source.JWKSource
+import com.nimbusds.jose.proc.SecurityContext
 import org.springframework.beans.factory.annotation.Value
+import org.springframework.security.oauth2.jwt.JwtClaimsSet
+import org.springframework.security.oauth2.jwt.JwtEncoderParameters
+import org.springframework.security.oauth2.jwt.NimbusJwtEncoder
 import org.springframework.stereotype.Service
-import java.util.Date
-import javax.crypto.SecretKey
-import javax.crypto.spec.SecretKeySpec
+import java.time.Instant
 
+// ===== JWT Service cho API Login =====
+// Dùng cho POST /api/auth/login và POST /api/auth/register
+// Sử dụng CHUNG RSA key với Authorization Server (JWKSource)
+// → Tất cả JWT đều ký RS256 → 1 JwtDecoder verify được tất cả
 @Service
 class JwtService(
-    @Value("\${jwt.secret}") private val secretKey: String,
+    // Dùng chung RSA key với Auth Server (thay vì HS256 + shared secret như cũ)
+    private val jwkSource: JWKSource<SecurityContext>,
     @Value("\${jwt.expiration}") private val expiration: Long
 ) {
-    private val signingKey: SecretKey by lazy {
-        val keyBytes = secretKey.toByteArray()
-        SecretKeySpec(keyBytes, "HmacSHA256")
-    }
-
     fun generateToken(userId: Long, email: String, role: String): String {
-        val signer = MACSigner(signingKey)
-
-        val claimsSet = JWTClaimsSet.Builder()
+        // NimbusJwtEncoder tự động chọn RSA key từ JWKSource để ký JWT
+        val encoder = NimbusJwtEncoder(jwkSource)
+        val claims = JwtClaimsSet.builder()
             .subject(userId.toString())
             .claim("email", email)
             .claim("role", role)
-            .issueTime(Date())
-            .expirationTime(Date(System.currentTimeMillis() + expiration))
+            .issuedAt(Instant.now())
+            // expiresAt = now + expiration (config: jwt.expiration, default 24h)
+            .expiresAt(Instant.now().plusMillis(expiration))
             .build()
-
-        val signedJWT = SignedJWT(JWSHeader(JWSAlgorithm.HS256), claimsSet)
-        signedJWT.sign(signer)
-        return signedJWT.serialize()
+        return encoder.encode(JwtEncoderParameters.from(claims)).tokenValue
     }
-
-    fun retrieveSigningKey(): SecretKey = signingKey
 }
