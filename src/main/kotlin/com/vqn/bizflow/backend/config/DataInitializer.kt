@@ -19,10 +19,13 @@ import java.util.UUID
 @Component
 class DataInitializer(
     private val registeredClientRepository: RegisteredClientRepository,
+    // Secret dùng để Next.js xác thực khi exchange authorization code lấy token
+    // Lấy từ biến môi trường NEXTJS_CLIENT_SECRET (default: nextjs-secret)
+    @Value("\${app.oauth2.nextjs.client-secret}") private val clientSecret: String,
     // Redirect URI của Next.js — nơi nhận authorization_code từ auth server
-    @Value($$"${app.oauth2.nextjs.redirect-uri}") private val redirectUri: String,
+    @Value("\${app.oauth2.nextjs.redirect-uri}") private val redirectUri: String,
     // Nơi redirect sau khi user logout
-    @Value($$"${app.oauth2.nextjs.post-logout-redirect-uri}") private val postLogoutRedirectUri: String
+    @Value("\${app.oauth2.nextjs.post-logout-redirect-uri}") private val postLogoutRedirectUri: String
 ) : CommandLineRunner {
 
     override fun run(vararg args: String) {
@@ -34,9 +37,11 @@ class DataInitializer(
         if (registeredClientRepository.findByClientId("nextjs-client") == null) {
             val nextjsClient = RegisteredClient.withId(UUID.randomUUID().toString())
                 .clientId("nextjs-client")
-                // NONE = public client (không có secret). Next.js là SPA chạy trên trình duyệt
-                // → secret sẽ bị lộ nếu dùng → không dùng secret, thay vào đó dùng PKCE
-                .clientAuthenticationMethod(ClientAuthenticationMethod.NONE)
+                // Dùng client_secret để Next.js (BFF) xác thực với token endpoint
+                // {noop} = plain text (không mã hóa trong DB — môi trường dev)
+                // Production: dùng {bcrypt} thay {noop}
+                .clientSecret("{noop}$clientSecret")
+                .clientAuthenticationMethod(ClientAuthenticationMethod.CLIENT_SECRET_BASIC)
                 // Authorization Code flow (OAuth2/OIDC chuẩn cho web app)
                 .authorizationGrantType(AuthorizationGrantType.AUTHORIZATION_CODE)
                 // Cho phép refresh token (access_token hết hạn 5 phút, refresh token lấy cái mới)
@@ -49,8 +54,11 @@ class DataInitializer(
                 .scope(OidcScopes.EMAIL)
                 .clientSettings(
                     ClientSettings.builder()
-                        // PKCE bắt buộc (Proof Key for Code Exchange)
-                        // Bảo vệ authorization_code không bị đánh cắp qua URL redirect
+                        // PKCE (Proof Key for Code Exchange): bảo vệ authorization_code khỏi bị
+                        // đánh cắp trên URL redirect. Dù Next.js là BFF server-side,
+                        // code vẫn đi qua browser URL → PKCE thêm 1 lớp bảo vệ.
+                        // OAuth 2.1 khuyến nghị PKCE cho ALL clients.
+                        // Dùng đồng thời client_secret + PKCE = defense in depth.
                         .requireProofKey(true)
                         // Bỏ qua consent page — nextjs-client là first-party app
                         .requireAuthorizationConsent(false)

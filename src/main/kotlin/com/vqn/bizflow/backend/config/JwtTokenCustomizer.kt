@@ -20,15 +20,15 @@ class JwtTokenCustomizer(
     fun tokenCustomizer(): OAuth2TokenCustomizer<JwtEncodingContext> {
         return OAuth2TokenCustomizer { context ->
             // Chỉ custom access_token (không custom id_token — OIDC đã định nghĩa sẵn)
-            if (context.getTokenType() == OAuth2TokenType.ACCESS_TOKEN) {
+            if (context.tokenType == OAuth2TokenType.ACCESS_TOKEN) {
                 // principal.name = email (vì UserDetailsServiceImpl dùng email làm username)
                 val principal = context.getPrincipal<Authentication>()
                 val user = userRepository.findByEmail(principal.name)
                 if (user != null) {
-                    context.getClaims().claim("email", user.email)
-                    context.getClaims().claim("role", user.role.name)
+                    context.claims.claim("email", user.email)
+                    context.claims.claim("role", user.role.name)
                     // name có thể null → dùng safe call + let
-                    user.name?.let { context.getClaims().claim("name", it) }
+                    user.name?.let { context.claims.claim("name", it) }
                 }
             }
         }
