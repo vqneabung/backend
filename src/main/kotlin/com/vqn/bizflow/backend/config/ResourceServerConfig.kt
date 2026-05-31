@@ -43,7 +43,7 @@ class ResourceServerConfig(
             // JwtDecoder bean (từ AuthorizationServerConfig) tự động được dùng để verify token
             .oauth2ResourceServer { oauth2 ->
                 oauth2.jwt { jwt ->
-                    // Extrat claim "role" từ JWT → tạo ROLE_USER / ROLE_ADMIN authority
+                    // Extract claim "role" từ JWT → tạo ROLE_USER / ROLE_ADMIN authority
                     jwt.jwtAuthenticationConverter(jwtAuthConverter)
                 }
                 oauth2.authenticationEntryPoint(authEntryPoint)

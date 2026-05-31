@@ -32,12 +32,11 @@ import org.springframework.security.config.annotation.web.configuration.OAuth2Au
 import java.util.UUID
 
 @Configuration
-class AuthorizationServerConfig {
-
-    // Lấy issuer URL từ config (VD: http://localhost:8080)
+class AuthorizationServerConfig(
+    // Issuer URL từ config (VD: http://localhost:8080)
     // Spring Boot đọc từ spring.security.oauth2.authorizationserver.issuer
-    @Value("\${spring.security.oauth2.authorizationserver.issuer}")
-    private lateinit var issuer: String
+    @Value($$"${spring.security.oauth2.authorizationserver.issuer}") private val issuer: String
+) {
 
     // ===== Security Filter Chain #1: Authorization Server Endpoints =====
     // Order(1) — chạy đầu tiên, chỉ bắt các URL OAuth2 (/oauth2/*, /.well-known/*)
