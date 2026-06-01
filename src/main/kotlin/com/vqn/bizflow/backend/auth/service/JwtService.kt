@@ -8,6 +8,7 @@ import org.springframework.security.oauth2.jwt.JwtEncoderParameters
 import org.springframework.security.oauth2.jwt.NimbusJwtEncoder
 import org.springframework.stereotype.Service
 import java.time.Instant
+import java.util.UUID
 
 // ===== JWT Service cho API Login =====
 // Dùng cho POST /api/auth/login và POST /api/auth/register
@@ -19,7 +20,7 @@ class JwtService(
     private val jwkSource: JWKSource<SecurityContext>,
     @Value("\${jwt.expiration}") private val expiration: Long
 ) {
-    fun generateToken(userId: Long, email: String, role: String): String {
+    fun generateToken(userId: UUID, email: String, role: String): String {
         // NimbusJwtEncoder tự động chọn RSA key từ JWKSource để ký JWT
         val encoder = NimbusJwtEncoder(jwkSource)
         val claims = JwtClaimsSet.builder()

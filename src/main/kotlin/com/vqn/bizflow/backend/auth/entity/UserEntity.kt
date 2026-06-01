@@ -1,22 +1,24 @@
 package com.vqn.bizflow.backend.auth.entity
 
+import com.vqn.bizflow.backend.entity.BaseEntity
 import jakarta.persistence.Column
 import jakarta.persistence.Entity
 import jakarta.persistence.EnumType
 import jakarta.persistence.Enumerated
-import jakarta.persistence.GeneratedValue
-import jakarta.persistence.GenerationType
-import jakarta.persistence.Id
 import jakarta.persistence.Table
-import java.time.Instant
 
+/**
+ * User — người dùng của hệ thống.
+ *
+ * Kế thừa BaseEntity: id (UUID) + createdAt + updatedAt.
+ * updatedAt mặc định null (User không có update flow).
+ *
+ * Role hiện tại: USER, ADMIN.
+ * Sau này có thể mở rộng: OWNER, EMPLOYEE.
+ */
 @Entity
 @Table(name = "users")
 class UserEntity(
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    val id: Long = 0,
-
     @Column(nullable = false, unique = true)
     val email: String,
 
@@ -31,7 +33,4 @@ class UserEntity(
     // Nullable: không bắt buộc khi register (có thể cập nhật sau)
     @Column(nullable = true)
     val name: String? = null,
-
-    @Column(nullable = false, updatable = false)
-    val createdAt: Instant = Instant.now()
-)
+) : BaseEntity()

@@ -3,7 +3,9 @@ package com.vqn.bizflow.backend.config
 import com.vqn.bizflow.backend.dto.ApiErrorResponse
 import com.vqn.bizflow.backend.dto.FieldError
 import com.vqn.bizflow.backend.exception.BadRequestException
+import com.vqn.bizflow.backend.exception.ConflictException
 import com.vqn.bizflow.backend.exception.DuplicateException
+import com.vqn.bizflow.backend.exception.ForbiddenException
 import com.vqn.bizflow.backend.exception.ResourceNotFoundException
 import com.vqn.bizflow.backend.exception.UnauthorizedException
 import org.springframework.http.HttpStatus
@@ -68,6 +70,20 @@ class GlobalExceptionHandler {
         return ResponseEntity
             .status(HttpStatus.UNAUTHORIZED)
             .body(ApiErrorResponse(message = ex.message ?: "Unauthorized"))
+    }
+
+    @ExceptionHandler(ForbiddenException::class)
+    fun handleForbidden(ex: ForbiddenException): ResponseEntity<ApiErrorResponse> {
+        return ResponseEntity
+            .status(HttpStatus.FORBIDDEN)
+            .body(ApiErrorResponse(message = ex.message ?: "Forbidden"))
+    }
+
+    @ExceptionHandler(ConflictException::class)
+    fun handleConflict(ex: ConflictException): ResponseEntity<ApiErrorResponse> {
+        return ResponseEntity
+            .status(HttpStatus.CONFLICT)
+            .body(ApiErrorResponse(message = ex.message ?: "Conflict"))
     }
 
     // ── Spring Security errors ──
