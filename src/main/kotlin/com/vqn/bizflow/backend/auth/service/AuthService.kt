@@ -51,7 +51,7 @@ class AuthService(
         val savedUser = userRepository.save(user)
 
         val token = jwtService.generateToken(
-            userId = savedUser.id,
+            userId = savedUser.id!!,
             email = savedUser.email,
             role = savedUser.role.name
         )
@@ -73,7 +73,7 @@ class AuthService(
         }
 
         val token = jwtService.generateToken(
-            userId = user.id,
+            userId = user.id!!,
             email = user.email,
             role = user.role.name
         )

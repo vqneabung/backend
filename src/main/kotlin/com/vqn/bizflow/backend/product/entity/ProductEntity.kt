@@ -3,6 +3,7 @@ package com.vqn.bizflow.backend.product.entity
 import com.vqn.bizflow.backend.entity.BaseEntity
 import jakarta.persistence.*
 import java.math.BigDecimal
+import java.time.Instant
 import java.util.UUID
 
 /**
@@ -12,7 +13,8 @@ import java.util.UUID
  * Optimistic locking: @Version để tránh race condition khi 2 user cùng sửa.
  * Snapshot giá: giá tại thời điểm bán được lưu riêng ở đơn hàng (không lấy từ đây).
  *
- * Kế thừa BaseEntity: id (UUID) + createdAt + updatedAt.
+ * Kế thừa BaseEntity: id (UUID) + createdAt.
+ * updatedAt khai báo riêng tại đây (không ở BaseEntity vì Hibernate 7 auto-detect).
  */
 @Entity
 @Table(
@@ -71,4 +73,8 @@ class ProductEntity(
     @Version
     @Column(nullable = false)
     var version: Long = 0,
+
+    /** Thời điểm cập nhật cuối */
+    @Column
+    var updatedAt: Instant? = null,
 ) : BaseEntity()

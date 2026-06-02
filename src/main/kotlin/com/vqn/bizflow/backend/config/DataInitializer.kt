@@ -13,9 +13,19 @@ import org.springframework.stereotype.Component
 import java.time.Duration
 import java.util.UUID
 
+/**
+ * DataInitializer — Seed dữ liệu mặc định khi app khởi chạy lần đầu.
+ *
+ * Các dữ liệu được seed:
+ * 1. OAuth2 clients (Next.js + Laravel Admin)
+ * 2. Users mặc định (Owner + Admin)
+ *
+ * Tất cả đều kiểm tra tồn tại trước — nếu có rồi thì skip.
+ */
 @Component
 class DataInitializer(
     private val registeredClientRepository: RegisteredClientRepository,
+    private val userSeedService: UserSeedService,
     // Secret cho Next.js
     @Value("\${app.oauth2.nextjs.client-secret}") private val nextjsSecret: String,
     // Redirect URI của Next.js
@@ -29,29 +39,21 @@ class DataInitializer(
     override fun run(vararg args: String) {
         seedNextjsClient()
         seedLaravelAdminClient()
+        userSeedService.seedIfEmpty()
     }
 
-    /** Client cho Next.js (user app) — redirect về /api/auth/callback/oidc */
+    // ===== OAuth2 Clients =====
+
     private fun seedNextjsClient() {
         if (registeredClientRepository.findByClientId("nextjs-client") != null) return
-        saveClient(
-            clientId = "nextjs-client",
-            clientSecret = nextjsSecret,
-            redirectUri = nextjsRedirectUri
-        )
+        saveClient("nextjs-client", nextjsSecret, nextjsRedirectUri)
     }
 
-    /** Client cho Laravel Admin — redirect về /admin/callback */
     private fun seedLaravelAdminClient() {
         if (registeredClientRepository.findByClientId("laravel-admin-client") != null) return
-        saveClient(
-            clientId = "laravel-admin-client",
-            clientSecret = laravelSecret,
-            redirectUri = laravelRedirectUri
-        )
+        saveClient("laravel-admin-client", laravelSecret, laravelRedirectUri)
     }
 
-    /** Helper — tạo RegisteredClient với config chung */
     private fun saveClient(clientId: String, clientSecret: String, redirectUri: String) {
         val client = RegisteredClient.withId(UUID.randomUUID().toString())
             .clientId(clientId)
@@ -64,9 +66,7 @@ class DataInitializer(
             .scope(OidcScopes.PROFILE)
             .scope(OidcScopes.EMAIL)
             .clientSettings(ClientSettings.builder()
-                // PKCE bắt buộc — defense in depth cùng với client_secret
                 .requireProofKey(true)
-                // Bỏ qua consent page — first-party apps
                 .requireAuthorizationConsent(false)
                 .build())
             .tokenSettings(TokenSettings.builder()

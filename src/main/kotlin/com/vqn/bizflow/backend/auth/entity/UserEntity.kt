@@ -1,5 +1,4 @@
 package com.vqn.bizflow.backend.auth.entity
-
 import com.vqn.bizflow.backend.entity.BaseEntity
 import jakarta.persistence.Column
 import jakarta.persistence.Entity
@@ -10,8 +9,8 @@ import jakarta.persistence.Table
 /**
  * User — người dùng của hệ thống.
  *
- * Kế thừa BaseEntity: id (UUID) + createdAt + updatedAt.
- * updatedAt mặc định null (User không có update flow).
+ * Kế thừa BaseEntity: id (UUID) + createdAt.
+ * Không có updatedAt — User không có update flow trong thiết kế hiện tại.
  *
  * Role hiện tại: USER, ADMIN.
  * Sau này có thể mở rộng: OWNER, EMPLOYEE.

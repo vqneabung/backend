@@ -10,24 +10,20 @@ import java.util.UUID
  *
  * - id: UUID (Hibernate @UuidGenerator, kiểu uniqueidentifier trong SQL Server)
  * - createdAt: thời điểm tạo, không thể sửa sau khi persist
- * - updatedAt: thời điểm cập nhật cuối (nullable)
  *
- * Entities kế thừa BaseEntity sẽ tự động có 3 trường này,
- * không cần khai báo lại trong constructor.
+ * id nullable với default null — khi entity được tạo mới, save() gọi persist().
+ * Sau khi persist, @UuidGenerator sinh UUID và Hibernate set vào entity.
  *
- * @see ProductEntity
- * @see UserEntity
+ * KHÔNG đặt updatedAt ở đây — Hibernate 7.x auto-detect
+ * timestamp fields as optimistic lock, gây StaleObjectStateException.
  */
 @MappedSuperclass
 abstract class BaseEntity(
     @Id
     @UuidGenerator
     @Column(name = "id", nullable = false, updatable = false)
-    open val id: UUID = UUID.randomUUID(),
+    open var id: UUID? = null,
 
     @Column(nullable = false, updatable = false)
     open val createdAt: Instant = Instant.now(),
-
-    @Column
-    open var updatedAt: Instant? = null,
 )
