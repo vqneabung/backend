@@ -1,4 +1,4 @@
-/**
+    /**
  * auth-validation.js — Client-side validation for login & register forms.
  *
  * Uses JustValidate CDN (~10KB, no jQuery dependency):
@@ -27,8 +27,21 @@ document.addEventListener('DOMContentLoaded', function () {
     // --- Login form validation ---
     var loginForm = document.getElementById('loginForm');
     if (loginForm) {
+        console.log('[auth-validation] Login form found, initializing JustValidate');
         var loginValidator = new JustValidate('#loginForm', {
             errorFieldCssClass: 'just-validate-error-field',
+            submitHandler: function () {
+                console.log('[auth-validation] Login validation passed, submitting form');
+                var form = document.getElementById('loginForm');
+                if (form) {
+                    form.submit();
+                } else {
+                    console.error('[auth-validation] loginForm not found in DOM');
+                }
+            },
+            onError: function (errors) {
+                console.log('[auth-validation] Validation failed:', errors);
+            },
         });
 
         loginValidator
@@ -48,6 +61,16 @@ document.addEventListener('DOMContentLoaded', function () {
                     errorMessage: 'Password is required',
                 },
             ]);
+
+        // Backup: nếu JustValidate prevent default, submit form trực tiếp
+        loginForm.addEventListener('submit', function (e) {
+            console.log('[auth-validation] 🔥 Native submit event fired! JustValidate prevented: ' + e.defaultPrevented);
+            if (e.defaultPrevented) {
+                // JustValidate đã chặn — submit trực tiếp bằng JS
+                console.log('[auth-validation] Bypassing JustValidate, submitting form directly');
+                this.submit();
+            }
+        });
     }
 
     // --- Register form validation ---
@@ -55,6 +78,9 @@ document.addEventListener('DOMContentLoaded', function () {
     if (registerForm) {
         var registerValidator = new JustValidate('#registerForm', {
             errorFieldCssClass: 'just-validate-error-field',
+            submitHandler: function () {
+                document.getElementById('registerForm').submit();
+            },
         });
 
         registerValidator
