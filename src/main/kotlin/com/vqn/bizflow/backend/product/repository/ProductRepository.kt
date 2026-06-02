@@ -42,9 +42,6 @@ interface ProductRepository : JpaRepository<ProductEntity, UUID> {
         pageable: Pageable,
     ): Page<ProductEntity>
 
-    /** Tìm SP theo ID + Owner (1 query, an toàn) */
-    fun findByIdAndOwnerId(id: UUID, ownerId: UUID): Optional<ProductEntity>
-
     /** Danh sách SP sắp hết hàng (tồn <= ngưỡng) */
     fun findByOwnerIdAndIsActiveAndStockLessThanEqualOrderByStockAsc(
         ownerId: UUID, isActive: Boolean, threshold: java.math.BigDecimal,

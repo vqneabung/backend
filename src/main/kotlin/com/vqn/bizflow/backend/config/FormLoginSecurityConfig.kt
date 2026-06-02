@@ -10,12 +10,17 @@ import org.springframework.security.web.SecurityFilterChain
 // Xử lý các URL còn lại (không phải OAuth2, không phải /api/**)
 // Quan trọng: chain này render và xử lý /login page
 // Sau khi user login thành công → tạo session → redirect về URL gốc
+// Dùng RoleBasedAuthenticationSuccessHandler để redirect theo role:
+//   - Owner → Next.js dashboard
+//   - Admin → PHP Laravel admin
 //
 // Lưu ý: GET /login được xử lý bởi LoginController.kt (không dùng ViewControllerRegistry)
 // vì ViewController trong WebMvcConfigurer bean có thể không hoạt động đúng với
 // Spring Security 7.x + Spring Boot 4.x khi kết hợp formLogin().loginPage()
 @Configuration
-class FormLoginSecurityConfig {
+class FormLoginSecurityConfig(
+    private val authenticationSuccessHandler: RoleBasedAuthenticationSuccessHandler,
+) {
 
     @Bean
     @Order(3)
@@ -31,6 +36,7 @@ class FormLoginSecurityConfig {
             .formLogin { form ->
                 // Dùng custom login page (Thymeleaf) thay vì default Spring Security form
                 form.loginPage("/login").permitAll()
+                    .successHandler(authenticationSuccessHandler)
             }
         return http.build()
     }

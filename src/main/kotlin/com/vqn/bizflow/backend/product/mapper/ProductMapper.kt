@@ -32,7 +32,4 @@ interface ProductMapper {
      */
     @Mapping(target = "isLowStock", expression = "java(entity.getStock().compareTo(entity.getMinStock()) < 0)")
     fun toResponse(entity: ProductEntity): ProductResponse
-
-    /** Chuyển danh sách Entity → danh sách Response. */
-    fun toResponseList(entities: List<ProductEntity>): List<ProductResponse>
 }
