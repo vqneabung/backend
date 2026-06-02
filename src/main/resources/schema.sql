@@ -1,6 +1,8 @@
--- V2__create_oauth2_tables.sql
--- Creates OAuth2 tables for Spring Authorization Server JDBC implementations
+-- schema.sql — OAuth2 tables cho Spring Authorization Server.
+-- Các bảng này không phải JPA entity, Spring Security dùng JDBC raw.
+-- Hibernate ddl-auto=update không thể tạo được → cần SQL init.
 
+IF OBJECT_ID('oauth2_registered_client') IS NULL
 CREATE TABLE oauth2_registered_client (
     id NVARCHAR(100) NOT NULL,
     client_id NVARCHAR(100) NOT NULL,
@@ -18,6 +20,7 @@ CREATE TABLE oauth2_registered_client (
     CONSTRAINT pk_oauth2_registered_client PRIMARY KEY (id)
 );
 
+IF OBJECT_ID('oauth2_authorization') IS NULL
 CREATE TABLE oauth2_authorization (
     id NVARCHAR(100) NOT NULL,
     registered_client_id NVARCHAR(100) NOT NULL,
@@ -55,6 +58,7 @@ CREATE TABLE oauth2_authorization (
     CONSTRAINT pk_oauth2_authorization PRIMARY KEY (id)
 );
 
+IF OBJECT_ID('oauth2_authorization_consent') IS NULL
 CREATE TABLE oauth2_authorization_consent (
     registered_client_id NVARCHAR(100) NOT NULL,
     principal_name NVARCHAR(200) NOT NULL,

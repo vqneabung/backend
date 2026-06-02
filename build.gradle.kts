@@ -44,9 +44,6 @@ dependencies {
 	implementation("com.scalar.maven:scalar-webmvc:0.6.37")
 	// SpringDoc OpenAPI - auto-generates OpenAPI spec from controllers
 	implementation("org.springdoc:springdoc-openapi-starter-webmvc-ui:2.8.8")
-	// Flyway Database Migration
-	runtimeOnly("org.flywaydb:flyway-core")
-	runtimeOnly("org.flywaydb:flyway-sqlserver")
 	// Spring Authorization Server
 	implementation("org.springframework.boot:spring-boot-starter-oauth2-authorization-server")
 	implementation("org.springframework.boot:spring-boot-starter-thymeleaf")
