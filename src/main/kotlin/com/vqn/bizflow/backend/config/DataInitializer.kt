@@ -49,8 +49,12 @@ class DataInitializer(
 
     /**
      * Upsert OAuth2 client:
-     * - Nếu clientId đã tồn tại → update clientAuthenticationMethod + clientSecret
+     * - Nếu clientId đã tồn tại → update clientAuthenticationMethod + clientSecret + tokenSettings
      * - Nếu chưa tồn tại → tạo mới với đầy đủ config
+     *
+     * Lý do cập nhật tokenSettings khi update: TTL access_token/refresh_token
+     * có thể thay đổi theo code, cần áp dụng ngay cho client cũ. Nếu không
+     * upsert, client cũ giữ TTL cũ vĩnh viễn → inconsistent giữa các môi trường.
      */
     private fun seedClient(clientId: String, clientSecret: String, redirectUri: String) {
         val existing = registeredClientRepository.findByClientId(clientId)
@@ -59,11 +63,29 @@ class DataInitializer(
                 .clientAuthenticationMethod(ClientAuthenticationMethod.CLIENT_SECRET_POST)
                 .clientSecret(passwordEncoder.encode(clientSecret))
                 .clientName(clientId)
+                .tokenSettings(defaultTokenSettings())
                 .build()
             registeredClientRepository.save(updated)
             return
         }
         saveClient(clientId, clientSecret, redirectUri)
+    }
+
+    /**
+     * Token settings thống nhất cho cả OIDC flow và AuthService.login():
+     * - accessToken TTL: 24h (khớp với app.jwt.expiration trong application.properties)
+     * - refreshToken TTL: 30d
+     * - Reuse refresh token (giảm số lượng refresh token được issue)
+     *
+     * Trước đây TTL là 5 phút → user bị logout ngầm sau mỗi 5 phút, gây UX kém.
+     * Đã nâng lên 24h để khớp với TTL của AuthService.login().
+     */
+    private fun defaultTokenSettings(): TokenSettings {
+        return TokenSettings.builder()
+            .accessTokenTimeToLive(Duration.ofHours(24))
+            .refreshTokenTimeToLive(Duration.ofDays(30))
+            .reuseRefreshTokens(true)
+            .build()
     }
 
     private fun saveClient(clientId: String, clientSecret: String, redirectUri: String) {
@@ -82,11 +104,7 @@ class DataInitializer(
                 .requireProofKey(true)
                 .requireAuthorizationConsent(false)
                 .build())
-            .tokenSettings(TokenSettings.builder()
-                .accessTokenTimeToLive(Duration.ofMinutes(5))
-                .refreshTokenTimeToLive(Duration.ofDays(30))
-                .reuseRefreshTokens(true)
-                .build())
+            .tokenSettings(defaultTokenSettings())
             .build()
         registeredClientRepository.save(client)
     }

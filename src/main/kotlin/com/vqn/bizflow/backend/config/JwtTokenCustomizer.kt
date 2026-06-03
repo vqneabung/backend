@@ -25,6 +25,10 @@ class JwtTokenCustomizer(
                 val principal = context.getPrincipal<Authentication>()
                 val user = userRepository.findByEmail(principal.name)
                 if (user != null) {
+                    // Override sub claim = user UUID thay vì email (mặc định = principal.name).
+                    // OIDC spec (RFC 7519 §4.1.2): sub = locally unique identifier, never reassigned.
+                    // UUID là format chuẩn — resource server parse auth.name thành UUID thành công.
+                    context.claims.claim("sub", user.id.toString())
                     context.claims.claim("email", user.email)
                     context.claims.claim("role", user.role.name)
                     // name có thể null → dùng safe call + let
