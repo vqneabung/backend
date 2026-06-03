@@ -1,5 +1,6 @@
 package com.vqn.bizflow.backend.config
 
+import com.nimbusds.jose.JWSAlgorithm
 import com.nimbusds.jose.jwk.JWKSet
 import com.nimbusds.jose.jwk.RSAKey
 import com.nimbusds.jose.jwk.source.ImmutableJWKSet
@@ -118,6 +119,7 @@ class AuthorizationServerConfig(
         val rsaKey = RSAKey.Builder(publicKey)
             .privateKey(privateKey)
             .keyID(UUID.randomUUID().toString())
+            .algorithm(JWSAlgorithm.RS256)
             .build()
         val jwkSet = JWKSet(rsaKey)
         return ImmutableJWKSet(jwkSet)

@@ -23,7 +23,11 @@ object SecurityUtils {
     fun determineRedirectUrl(auth: Authentication, frontendUrl: String, adminUrl: String): String {
         val roles = auth.authorities.map(GrantedAuthority::getAuthority)
         return when {
-            "ROLE_ADMIN" in roles -> "$adminUrl/admin"
+            // ROLE_ADMIN → redirect về PHP admin login với flag from_spring=1
+            // PHP login thấy from_spring=1 → skip clear-session → OIDC authorize ngay
+            // Spring session còn valid → auto-authorize → code → callback → dashboard
+            // Tránh double-login (Spring Boot form login rồi PHP lại clear session).
+            "ROLE_ADMIN" in roles -> "$adminUrl/login?from_spring=1"
             "ROLE_OWNER" in roles -> "$frontendUrl/vi/dashboard"
             else -> frontendUrl
         }
