@@ -3,14 +3,19 @@ package com.vqn.bizflow.backend.auth.controller
 import com.vqn.bizflow.backend.auth.dto.AuthResponse
 import com.vqn.bizflow.backend.auth.dto.LoginRequest
 import com.vqn.bizflow.backend.auth.dto.RegisterRequest
+import com.vqn.bizflow.backend.auth.dto.UserResponse
 import com.vqn.bizflow.backend.auth.service.AuthService
 import com.vqn.bizflow.backend.dto.ApiResponse
 import io.swagger.v3.oas.annotations.Operation
 import io.swagger.v3.oas.annotations.responses.ApiResponse as SwaggerApiResponse
 import io.swagger.v3.oas.annotations.responses.ApiResponses
 import io.swagger.v3.oas.annotations.tags.Tag
+import com.vqn.bizflow.backend.util.SecurityUtils
 import jakarta.validation.Valid
 import org.springframework.http.ResponseEntity
+import org.springframework.security.access.prepost.PreAuthorize
+import org.springframework.security.core.Authentication
+import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.PostMapping
 import org.springframework.web.bind.annotation.RequestBody
 import org.springframework.web.bind.annotation.RequestMapping
@@ -51,5 +56,17 @@ class AuthController(
     fun login(@Valid @RequestBody request: LoginRequest): ResponseEntity<ApiResponse<AuthResponse>> {
         val response = authService.login(request)
         return ResponseEntity.ok(ApiResponse.success(data = response, message = "Đăng nhập thành công"))
+    }
+
+    @Operation(
+        summary = "Thông tin người dùng hiện tại",
+        description = "Trả về thông tin user từ JWT token (id, email, name, role, joinedAt).",
+    )
+    @GetMapping("/me")
+    @PreAuthorize("isAuthenticated()")
+    fun me(auth: Authentication): ResponseEntity<ApiResponse<UserResponse>> {
+        val userId = SecurityUtils.getUserId(auth)
+        val response = authService.me(userId)
+        return ResponseEntity.ok(ApiResponse.success(data = response))
     }
 }

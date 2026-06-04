@@ -3,6 +3,10 @@ package com.vqn.bizflow.backend.auth.service
 import com.vqn.bizflow.backend.auth.dto.AuthResponse
 import com.vqn.bizflow.backend.auth.dto.LoginRequest
 import com.vqn.bizflow.backend.auth.dto.RegisterRequest
+import com.vqn.bizflow.backend.auth.dto.UserResponse
+import org.springframework.http.HttpStatus
+import org.springframework.web.server.ResponseStatusException
+import java.util.UUID
 import com.vqn.bizflow.backend.auth.entity.Role
 import com.vqn.bizflow.backend.auth.entity.UserEntity
 import com.vqn.bizflow.backend.auth.repository.UserRepository
@@ -15,7 +19,7 @@ import org.springframework.security.crypto.password.PasswordEncoder
 import org.springframework.stereotype.Service
 
 /**
- * AuthService — Xử lý đăng ký và đăng nhập.
+ * AuthService — Xử lý đăng ký, đăng nhập và lấy thông tin user.
  *
  * Error messages lấy từ MessageSource (có i18n) thay vì hardcode.
  * Locale được detect từ Accept-Language header (LocaleConfig).
@@ -27,6 +31,20 @@ class AuthService(
     private val jwtService: JwtService,
     private val messageSource: MessageSource
 ) {
+    /** Lấy thông tin user hiện tại từ userId (UUID). */
+    fun me(userId: UUID): UserResponse {
+        val user = userRepository.findById(userId).orElseThrow {
+            ResponseStatusException(HttpStatus.NOT_FOUND, "User not found")
+        }
+        return UserResponse(
+            id = user.id!!,
+            email = user.email,
+            name = user.name,
+            role = user.role.name,
+            joinedAt = user.createdAt,
+        )
+    }
+
     fun register(request: RegisterRequest): AuthResponse {
         if (userRepository.existsByEmail(request.email)) {
             throw DuplicateException(msg("auth.register.duplicate"))
@@ -60,7 +78,9 @@ class AuthService(
             token = token,
             email = savedUser.email,
             role = savedUser.role.name,
-            name = savedUser.name
+            name = savedUser.name,
+            id = savedUser.id,
+            joinedAt = savedUser.createdAt,
         )
     }
 
@@ -82,7 +102,9 @@ class AuthService(
             token = token,
             email = user.email,
             role = user.role.name,
-            name = user.name
+            name = user.name,
+            id = user.id,
+            joinedAt = user.createdAt,
         )
     }
 
