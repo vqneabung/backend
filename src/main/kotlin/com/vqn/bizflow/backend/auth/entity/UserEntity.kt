@@ -13,7 +13,6 @@ import jakarta.persistence.Table
  * Không có updatedAt — User không có update flow trong thiết kế hiện tại.
  *
  * Role hiện tại: USER, ADMIN.
- * Sau này có thể mở rộng: OWNER, EMPLOYEE.
  */
 @Entity
 @Table(name = "users")

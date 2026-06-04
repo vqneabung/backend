@@ -45,6 +45,6 @@ class UserSeedService(
             name = "Quản trị viên"
         ))
 
-        log.info("✅ Created default users: owner@bizflow.vn, admin@bizflow.vn")
+        log.info("Created default users: owner@bizflow.vn, admin@bizflow.vn")
     }
 }

@@ -28,7 +28,7 @@ class FormLoginSecurityConfig(
         http
             .authorizeHttpRequests { auth ->
                 auth
-                    .requestMatchers("/login", "/register", "/error").permitAll()
+                    .requestMatchers("/login", "/register", "/error", "/dispatch").permitAll()
                     // Static resources — serve trực tiếp, không redirect về /login
                     .requestMatchers("/css/**", "/js/**", "/images/**").permitAll()
                     .anyRequest().authenticated()

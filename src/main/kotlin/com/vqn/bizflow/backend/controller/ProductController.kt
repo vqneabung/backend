@@ -25,8 +25,8 @@ import java.util.UUID
  *
  * Phân quyền:
  * - Tất cả endpoints yêu cầu authentication (JWT)
- * - CREATE/UPDATE/DELETE: yêu cầu role OWNER
- * - READ: tất cả roles (USER, EMPLOYEE, OWNER, ADMIN)
+ * - CREATE/UPDATE/DELETE: yêu cầu role USER hoặc ADMIN
+ * - READ: tất cả roles
  *
  * Response patterns:
  * - List: dùng PaginationResponse<ProductResponse> (generic, có pagination metadata)
@@ -41,7 +41,7 @@ class ProductController(
 ) {
     @Operation(
         summary = "Tạo sản phẩm mới",
-        description = "Chỉ Owner mới được tạo sản phẩm. Kiểm tra trùng tên, barcode.",
+        description = "USER và ADMIN được tạo sản phẩm. Kiểm tra trùng tên, barcode.",
     )
     @ApiResponses(value = [
         SwaggerApiResponse(responseCode = "201", description = "Tạo thành công"),
@@ -49,7 +49,7 @@ class ProductController(
         SwaggerApiResponse(responseCode = "409", description = "Tên sản phẩm đã tồn tại"),
     ])
     @PostMapping
-    @PreAuthorize("hasRole('OWNER')")
+    @PreAuthorize("hasAnyRole('USER', 'ADMIN')")
     fun create(
         auth: Authentication,
         @Valid @RequestBody request: CreateProductRequest,
@@ -90,10 +90,10 @@ class ProductController(
 
     @Operation(
         summary = "Cập nhật sản phẩm",
-        description = "Chỉ Owner mới được sửa. Có optimistic locking (version).",
+        description = "USER và ADMIN được sửa. Có optimistic locking (version).",
     )
     @PutMapping("/{id}")
-    @PreAuthorize("hasRole('OWNER')")
+    @PreAuthorize("hasAnyRole('USER', 'ADMIN')")
     fun update(
         auth: Authentication,
         @PathVariable id: UUID,
@@ -105,10 +105,10 @@ class ProductController(
 
     @Operation(
         summary = "Ẩn sản phẩm (soft delete)",
-        description = "Chỉ Owner. Không xóa vật lý.",
+        description = "USER và ADMIN. Không xóa vật lý.",
     )
     @PatchMapping("/{id}/deactivate")
-    @PreAuthorize("hasRole('OWNER')")
+    @PreAuthorize("hasAnyRole('USER', 'ADMIN')")
     fun deactivate(
         auth: Authentication,
         @PathVariable id: UUID,
@@ -122,7 +122,7 @@ class ProductController(
         description = "1 sản phẩm có thể có nhiều đơn vị (Bao, Kg...).",
     )
     @PostMapping("/{id}/units")
-    @PreAuthorize("hasRole('OWNER')")
+    @PreAuthorize("hasAnyRole('USER', 'ADMIN')")
     fun addUnit(
         @PathVariable id: UUID,
         @RequestParam unit: String,
@@ -139,7 +139,7 @@ class ProductController(
         description = "Không thể xóa unit cuối cùng.",
     )
     @DeleteMapping("/{id}/units/{unitId}")
-    @PreAuthorize("hasRole('OWNER')")
+    @PreAuthorize("hasAnyRole('USER', 'ADMIN')")
     fun removeUnit(
         @PathVariable id: UUID,
         @PathVariable unitId: UUID,

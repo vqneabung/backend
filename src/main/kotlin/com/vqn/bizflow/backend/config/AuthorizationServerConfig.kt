@@ -28,6 +28,7 @@ import org.springframework.security.web.authentication.LoginUrlAuthenticationEnt
 import org.springframework.security.web.util.matcher.MediaTypeRequestMatcher
 import java.nio.file.Path
 import java.nio.file.Paths
+import org.slf4j.LoggerFactory
 import java.security.KeyFactory
 import java.security.KeyPair
 import java.security.KeyPairGenerator
@@ -50,6 +51,7 @@ class AuthorizationServerConfig(
     // Set qua env: JWT_KEY_FILE=/var/secrets/jwt-keypair.pem
     @Value("\${bizflow.jwt.key-file:\${JWT_KEY_FILE:./jwt-keypair.pem}}") private val keyFilePath: String
 ) {
+    private val log = LoggerFactory.getLogger(AuthorizationServerConfig::class.java)
 
     // ===== Security Filter Chain #1: Authorization Server Endpoints =====
     // Order(1) — chạy đầu tiên, chỉ bắt các URL OAuth2 (/oauth2/*, /.well-known/*)
@@ -152,21 +154,10 @@ class AuthorizationServerConfig(
                 // Tạo thư mục cha nếu chưa có
                 file.parentFile?.mkdirs()
                 file.writeText(toPem(newPair), Charsets.UTF_8)
-                // Set file permissions chỉ owner đọc được (chmod 600) — best effort trên POSIX
-                try {
-                    val setOwnerOnly = file.setReadable(false, false) and file.setReadable(true, true)
-                    val setWriteOwner = file.setWritable(false, false) and file.setWritable(true, true)
-                    if (!setOwnerOnly || !setWriteOwner) {
-                        // Trên Windows hoặc FS không hỗ trợ → bỏ qua
-                    }
-                } catch (_: Exception) {
-                    // best-effort
-                }
                 newPair
             }
         } catch (ex: Exception) {
-            // Nếu file lỗi (corrupt, format sai) → log + sinh lại để không crash app
-            System.err.println("[WARN] Failed to load RSA key from $keyFilePath: ${ex.message}. Generating new key.")
+            log.warn("Failed to load RSA key from $keyFilePath: ${ex.message}. Generating new key.")
             val newPair = generateRsaKey()
             try {
                 file.writeText(toPem(newPair), Charsets.UTF_8)
