@@ -29,6 +29,7 @@ interface ProductMapper {
      * - isLowStock: computed: stock < minStock.
      * - imageKeys: sorted theo position ASC, lấy objectKey.
      */
+    @Mapping(target = "isActive", source = "active")
     @Mapping(target = "categoryName", expression = "java(entity.getCategoryRef() != null ? entity.getCategoryRef().getName() : null)")
     @Mapping(target = "primaryUnitName", expression = "java(entity.getPrimaryUnitRef() != null ? entity.getPrimaryUnitRef().getName() : null)")
     @Mapping(target = "isLowStock", expression = "java(entity.getStock().compareTo(entity.getMinStock()) < 0)")

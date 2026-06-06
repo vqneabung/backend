@@ -42,6 +42,6 @@ class ProductUnitEntity(
 
     /** Read-only: lấy tên đơn vị cho mapper */
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "unit_id", insertable = false, updatable = false)
+    @JoinColumn(name = "unit_id", referencedColumnName = "id", insertable = false, updatable = false)
     var unitRef: UnitEntity? = null,
 )

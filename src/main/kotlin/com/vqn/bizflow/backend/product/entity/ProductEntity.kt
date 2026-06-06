@@ -106,12 +106,12 @@ class ProductEntity(
 
     /** Category entity — read-only, dùng để lấy categoryName trong mapper */
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "category_id", insertable = false, updatable = false)
+    @JoinColumn(name = "category_id", referencedColumnName = "id", insertable = false, updatable = false)
     var categoryRef: CategoryEntity? = null
 
     /** Unit entity — read-only, dùng để lấy primaryUnitName trong mapper */
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "primary_unit_id", insertable = false, updatable = false)
+    @JoinColumn(name = "primary_unit_id", referencedColumnName = "id", insertable = false, updatable = false)
     var primaryUnitRef: UnitEntity? = null
 
     /**
