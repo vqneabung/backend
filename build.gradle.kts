@@ -50,6 +50,8 @@ dependencies {
 	// MapStruct — compile-time Entity ↔ DTO mapping
 	implementation("org.mapstruct:mapstruct:1.6.3")
 	kapt("org.mapstruct:mapstruct-processor:1.6.3")
+	// MinIO — Object Storage SDK
+	implementation("io.minio:minio:8.5.17")
 }
 
 kapt {

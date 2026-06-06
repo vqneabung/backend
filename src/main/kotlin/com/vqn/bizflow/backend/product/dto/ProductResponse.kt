@@ -9,6 +9,8 @@ import java.util.UUID
  * Response trả về thông tin sản phẩm.
  *
  * Dùng MapStruct (ProductMapper) để chuyển từ ProductEntity sang DTO này.
+ * categoryId, categoryName, primaryUnitId, primaryUnitName được map từ
+ * @ManyToOne read-only references trên entity.
  * isLowStock là computed field: stock < minStock.
  */
 @Schema(description = "Thông tin sản phẩm")
@@ -19,11 +21,17 @@ data class ProductResponse(
     @field:Schema(description = "Tên sản phẩm", example = "Xi măng Hà Tiên PCB40")
     val name: String,
 
-    @field:Schema(description = "Danh mục", example = "VLXD")
-    val category: String?,
+    @field:Schema(description = "ID danh mục (UUID)")
+    val categoryId: UUID?,
 
-    @field:Schema(description = "Đơn vị tính chính", example = "Bao")
-    val primaryUnit: String,
+    @field:Schema(description = "Tên danh mục", example = "VLXD")
+    val categoryName: String?,
+
+    @field:Schema(description = "ID đơn vị tính chính (UUID)")
+    val primaryUnitId: UUID,
+
+    @field:Schema(description = "Tên đơn vị tính chính", example = "Bao")
+    val primaryUnitName: String,
 
     @field:Schema(description = "Giá bán (VND)", example = "85000")
     val price: BigDecimal,
@@ -31,14 +39,17 @@ data class ProductResponse(
     @field:Schema(description = "Giá vốn (VND)", example = "70000")
     val costPrice: BigDecimal?,
 
-    @field:Schema(description = "Tồn kho", example = "150")
+    @field:Schema(description = "Tồn kho (số nguyên)", example = "150")
     val stock: BigDecimal,
 
-    @field:Schema(description = "Tồn tối thiểu", example = "20")
+    @field:Schema(description = "Tồn tối thiểu (số nguyên)", example = "20")
     val minStock: BigDecimal,
 
-    @field:Schema(description = "URL hình ảnh")
+    @field:Schema(description = "URL hình ảnh (external hoặc fallback — dùng imageKeys cho upload mới)")
     val imageUrl: String?,
+
+    @field:Schema(description = "Danh sách MinIO objectKey của ảnh (tối đa 5, đã sắp xếp theo position)")
+    val imageKeys: List<String> = emptyList(),
 
     @field:Schema(description = "Mã vạch")
     val barcode: String?,

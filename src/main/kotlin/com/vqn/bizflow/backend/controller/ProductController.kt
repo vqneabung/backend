@@ -27,11 +27,6 @@ import java.util.UUID
  * - Tất cả endpoints yêu cầu authentication (JWT)
  * - CREATE/UPDATE/DELETE: yêu cầu role USER hoặc ADMIN
  * - READ: tất cả roles
- *
- * Response patterns:
- * - List: dùng PaginationResponse<ProductResponse> (generic, có pagination metadata)
- * - Single: dùng ApiResponse<ProductResponse> (success + message + data)
- * - Action (deactivate, addUnit, removeUnit): dùng ApiResponse<Unit>
  */
 @Tag(name = "Products", description = "Quản lý sản phẩm")
 @RestController
@@ -61,20 +56,20 @@ class ProductController(
 
     @Operation(
         summary = "Danh sách sản phẩm",
-        description = "Phân trang, tìm kiếm, lọc theo category. Tất cả roles đều xem được.",
+        description = "Phân trang, tìm kiếm, lọc theo categoryId. Tất cả roles đều xem được.",
     )
     @GetMapping
     fun list(
         auth: Authentication,
         @RequestParam(required = false) search: String?,
-        @RequestParam(required = false) category: String?,
+        @RequestParam(required = false) categoryId: UUID?,
         @RequestParam(defaultValue = "1") page: Int,
         @RequestParam(defaultValue = "20") size: Int,
         @RequestParam(required = false) sortBy: String?,
         @RequestParam(defaultValue = "desc") sortDir: String?,
     ): ResponseEntity<PaginationResponse<ProductResponse>> {
         val result = productService.list(
-            SecurityUtils.getUserId(auth), search, category, page, size, sortBy, sortDir
+            SecurityUtils.getUserId(auth), search, categoryId, page, size, sortBy, sortDir
         )
         return ResponseEntity.ok(result)
     }
@@ -118,24 +113,24 @@ class ProductController(
     }
 
     @Operation(
-        summary = "Thêm đơn vị tính",
-        description = "1 sản phẩm có thể có nhiều đơn vị (Bao, Kg...).",
+        summary = "Thêm đơn vị tính phụ",
+        description = "1 sản phẩm có thể có nhiều đơn vị (Bao, Kg...). unitId là FK → units(id).",
     )
     @PostMapping("/{id}/units")
     @PreAuthorize("hasAnyRole('USER', 'ADMIN')")
     fun addUnit(
         @PathVariable id: UUID,
-        @RequestParam unit: String,
+        @RequestParam unitId: UUID,
         @RequestParam price: BigDecimal,
         @RequestParam(required = false) conversionRate: BigDecimal?,
     ): ResponseEntity<ApiResponse<Unit>> {
-        productService.addUnit(id, unit, price, conversionRate)
+        productService.addUnit(id, unitId, price, conversionRate)
         return ResponseEntity.status(HttpStatus.CREATED)
             .body(ApiResponse.ok("Unit added"))
     }
 
     @Operation(
-        summary = "Xóa đơn vị tính",
+        summary = "Xóa đơn vị tính phụ",
         description = "Không thể xóa unit cuối cùng.",
     )
     @DeleteMapping("/{id}/units/{unitId}")

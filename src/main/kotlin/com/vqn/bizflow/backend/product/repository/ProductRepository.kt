@@ -27,18 +27,18 @@ interface ProductRepository : JpaRepository<ProductEntity, UUID> {
     @Query("SELECT p FROM ProductEntity p WHERE p.ownerId = :ownerId AND p.isActive = :isActive")
     fun findByOwnerIdAndIsActive(@Param("ownerId") ownerId: UUID, @Param("isActive") isActive: Boolean, pageable: Pageable): Page<ProductEntity>
 
-    /** Tìm kiếm SP theo tên (LIKE) trong owner */
+    /** Tìm kiếm SP theo tên (LIKE) trong owner, lọc theo categoryId */
     @Query("""
         SELECT p FROM ProductEntity p 
         WHERE p.ownerId = :ownerId 
         AND p.isActive = true
         AND (:search IS NULL OR LOWER(p.name) LIKE LOWER(CONCAT('%', :search, '%')))
-        AND (:category IS NULL OR p.category = :category)
+        AND (:categoryId IS NULL OR p.categoryId = :categoryId)
     """)
     fun searchByOwnerId(
         @Param("ownerId") ownerId: UUID,
         @Param("search") search: String?,
-        @Param("category") category: String?,
+        @Param("categoryId") categoryId: UUID?,
         pageable: Pageable,
     ): Page<ProductEntity>
 

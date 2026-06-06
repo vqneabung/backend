@@ -11,8 +11,10 @@ import com.vqn.bizflow.backend.product.dto.ProductResponse
 import com.vqn.bizflow.backend.product.dto.UpdateProductRequest
 import com.vqn.bizflow.backend.product.dto.toEntity
 import com.vqn.bizflow.backend.product.entity.ProductEntity
+import com.vqn.bizflow.backend.product.entity.ProductImageEntity
 import com.vqn.bizflow.backend.product.entity.ProductUnitEntity
 import com.vqn.bizflow.backend.product.mapper.ProductMapper
+import com.vqn.bizflow.backend.product.repository.ProductImageRepository
 import com.vqn.bizflow.backend.product.repository.ProductRepository
 import com.vqn.bizflow.backend.product.repository.ProductUnitRepository
 import org.slf4j.LoggerFactory
@@ -35,16 +37,17 @@ import java.util.UUID
  * - Duplicate (tên trùng, barcode trùng)
  * - Soft delete (không xóa vật lý)
  * - Optimistic locking (race condition)
- * - Snapshot giá (giá tại thời điểm bán được lưu riêng ở đơn hàng)
  *
  * Dùng MapStruct (ProductMapper) để chuyển Entity → Response tự động.
- * Dùng PaginationResponse<T> generic cho phân trang, thay vì DTO riêng.
+ * @ManyToOne read-only references (categoryRef, primaryUnitRef) được
+ * JPA tự động load để mapper lấy được categoryName / primaryUnitName.
  */
 @Service
 @Transactional
 class ProductService(
     private val productRepo: ProductRepository,
     private val productUnitRepo: ProductUnitRepository,
+    private val productImageRepo: ProductImageRepository,
     private val productMapper: ProductMapper,
 ) {
     companion object {
@@ -83,15 +86,22 @@ class ProductService(
 
         val entity = request.toEntity(userId)
 
+        // Lưu trước để có id, sau đó mới thêm images (cần productId FK)
         val saved = productRepo.save(entity)
 
+        // Thêm images nếu có
+        request.imageKeys.take(ProductEntity.MAX_IMAGES).forEach { key ->
+            saved.addImage(objectKey = key, uploadedBy = userId)
+        }
+        val finalSaved = if (request.imageKeys.isNotEmpty()) productRepo.save(saved) else saved
+
         // UC-09: Cảnh báo tồn kho thấp ngay khi tạo
-        if (saved.stock < saved.minStock) {
+        if (finalSaved.stock < finalSaved.minStock) {
             log.warn("Stock {} is below minimum threshold {} for product '{}'",
-                saved.stock, saved.minStock, saved.name)
+                finalSaved.stock, finalSaved.minStock, finalSaved.name)
         }
 
-        return productMapper.toResponse(saved)
+        return productMapper.toResponse(finalSaved)
     }
 
     /**
@@ -102,9 +112,10 @@ class ProductService(
         val product = findActiveProduct(userId, productId)
 
         // UC-25: Body rỗng
-        if (request.name == null && request.category == null && request.primaryUnit == null &&
+        if (request.name == null && request.categoryId == null && request.primaryUnitId == null &&
             request.price == null && request.costPrice == null && request.stock == null &&
-            request.minStock == null && request.imageUrl == null && request.barcode == null
+            request.minStock == null && request.imageUrl == null && request.imageKeys == null &&
+            request.barcode == null
         ) {
             throw BadRequestException("At least one field must be provided")
         }
@@ -119,13 +130,19 @@ class ProductService(
             }
         }
 
-        request.category?.trim()?.let { product.category = it }
-        request.primaryUnit?.trim()?.let { product.primaryUnit = it }
+        request.categoryId?.let { product.categoryId = it }
+        request.primaryUnitId?.let { product.primaryUnitId = it }
         request.price?.let { validatePositive(it, "Price"); product.price = it }
         request.costPrice?.let { product.costPrice = it }
         request.stock?.let { validateNonNegative(it, "Stock"); product.stock = it }
         request.minStock?.let { validateNonNegative(it, "Min stock"); product.minStock = it }
         request.imageUrl?.trim()?.let { product.imageUrl = it }
+
+        // Replace toàn bộ ảnh (nếu imageKeys được gửi)
+        request.imageKeys?.let { keys ->
+            product.replaceImages(objectKeys = keys, uploadedBy = userId)
+        }
+
         request.barcode?.trim()?.let {
             if (it != product.barcode) {
                 if (productRepo.existsByBarcodeAndIsActive(it, true)) {
@@ -147,16 +164,12 @@ class ProductService(
 
     /**
      * Soft delete — ẩn sản phẩm.
-     * UC-27 đến UC-29: check tồn tại, đã deactivate, quyền sở hữu.
      */
     fun deactivate(userId: UUID, productId: UUID) {
         val product = findActiveProduct(userId, productId)
-
-        // UC-28: Đã deactivate rồi
         if (!product.isActive) {
             throw ConflictException("Product is already deactivated")
         }
-
         product.isActive = false
         product.updatedAt = Instant.now()
         productRepo.save(product)
@@ -164,7 +177,6 @@ class ProductService(
 
     /**
      * Lấy chi tiết sản phẩm.
-     * UC-37, UC-38: không tồn tại hoặc đã deactivate.
      */
     @Transactional(readOnly = true)
     fun getById(productId: UUID): ProductResponse {
@@ -174,17 +186,13 @@ class ProductService(
     }
 
     /**
-     * Danh sách sản phẩm (phân trang + tìm kiếm + lọc).
-     * UC-30 đến UC-36: empty, page overflow, search ko kết quả, filter sai.
-     *
-     * Trả về PaginationResponse<ProductResponse> — generic paginated wrapper.
-     * PaginationMeta dùng page index 0-based (Spring Data convention).
+     * Danh sách sản phẩm (phân trang + tìm kiếm + lọc theo categoryId).
      */
     @Transactional(readOnly = true)
     fun list(
         userId: UUID,
         search: String?,
-        category: String?,
+        categoryId: UUID?,
         page: Int,
         size: Int,
         sortBy: String?,
@@ -197,13 +205,13 @@ class ProductService(
 
         val pageable = PageRequest.of(actualPage, actualSize, Sort.by(actualSortDir, actualSortBy))
 
-        val result: Page<ProductEntity> = if (search.isNullOrBlank() && category.isNullOrBlank()) {
+        val result: Page<ProductEntity> = if (search.isNullOrBlank() && categoryId == null) {
             productRepo.findByOwnerIdAndIsActive(userId, true, pageable)
         } else {
             productRepo.searchByOwnerId(
                 ownerId = userId,
                 search = search?.takeIf { it.isNotBlank() },
-                category = category?.takeIf { it.isNotBlank() },
+                categoryId = categoryId,
                 pageable = pageable,
             )
         }
@@ -216,21 +224,21 @@ class ProductService(
         )
     }
 
-    // ===== Đơn vị tính =====
+    // ===== Đơn vị tính phụ (ProductUnit) =====
 
     /** Thêm đơn vị tính phụ cho sản phẩm. */
-    fun addUnit(productId: UUID, unit: String, price: BigDecimal, conversionRate: BigDecimal?): ProductUnitEntity {
+    fun addUnit(productId: UUID, unitId: UUID, price: BigDecimal, conversionRate: BigDecimal?): ProductUnitEntity {
         if (!productRepo.existsById(productId)) {
             throw ResourceNotFoundException("Product not found")
         }
-        if (productUnitRepo.existsByProductIdAndUnit(productId, unit)) {
+        if (productUnitRepo.existsByProductIdAndUnitId(productId, unitId)) {
             throw DuplicateException("Unit already exists for this product")
         }
         if (conversionRate != null && conversionRate <= BigDecimal.ZERO) {
             throw BadRequestException("Conversion rate must be greater than 0")
         }
         return productUnitRepo.save(
-            ProductUnitEntity(productId = productId, unit = unit, price = price, conversionRate = conversionRate)
+            ProductUnitEntity(productId = productId, unitId = unitId, price = price, conversionRate = conversionRate)
         )
     }
 
@@ -249,7 +257,6 @@ class ProductService(
 
     // ===== Helpers =====
 
-    /** Tìm SP + kiểm tra quyền sở hữu (1 query findById, check owner trong memory) */
     private fun findActiveProduct(userId: UUID, productId: UUID): ProductEntity {
         val product = productRepo.findById(productId)
             .orElseThrow { ResourceNotFoundException("Product not found") }

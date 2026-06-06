@@ -13,6 +13,9 @@ import java.util.UUID
  * - Xi măng: giá theo Bao (85,000₫) và theo Kg (1,700₫)
  * - conversionRate: 1 Bao = 50 Kg
  *
+ * unitId: FK → units(id). Đơn vị "Bao", "Kg" được quản lý tập trung
+ * ở bảng `units` (global hoặc user-defined), không lưu text trực tiếp.
+ *
  * Không kế thừa BaseEntity (không cần createdAt/updatedAt).
  * id là UUID riêng, dùng @UuidGenerator.
  */
@@ -27,12 +30,18 @@ class ProductUnitEntity(
     @Column(nullable = false)
     val productId: UUID,
 
-    @Column(nullable = false, length = 50)
-    var unit: String,
+    /** FK → units(id) — đơn vị tính */
+    @Column(nullable = false)
+    var unitId: UUID,
 
     @Column(nullable = false, precision = 18, scale = 0)
     var price: BigDecimal,
 
     @Column(precision = 18, scale = 2)
     var conversionRate: BigDecimal? = null,
+
+    /** Read-only: lấy tên đơn vị cho mapper */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "unit_id", insertable = false, updatable = false)
+    var unitRef: UnitEntity? = null,
 )

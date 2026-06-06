@@ -11,9 +11,9 @@ import java.util.UUID
  *
  * Validation:
  * - name: required, không blank
- * - primaryUnit: required, không blank
+ * - primaryUnitId: required
  * - price: required, > 0
- * - stock: >= 0 (mặc định 0)
+ * - stock: >= 0 (mặc định 0), integer
  * - imageUrl: nếu có phải là URL hợp lệ
  */
 @Schema(description = "Yêu cầu tạo sản phẩm mới")
@@ -23,14 +23,12 @@ data class CreateProductRequest(
     @field:Schema(description = "Tên sản phẩm", example = "Xi măng Hà Tiên PCB40")
     val name: String,
 
-    @field:Size(max = 100, message = "Category must not exceed 100 characters")
-    @field:Schema(description = "Danh mục", example = "VLXD")
-    val category: String? = null,
+    @field:Schema(description = "ID danh mục (UUID)", example = "550e8400-e29b-41d4-a716-446655440000")
+    val categoryId: UUID? = null,
 
-    @field:NotBlank(message = "Primary unit is required")
-    @field:Size(max = 50, message = "Unit must not exceed 50 characters")
-    @field:Schema(description = "Đơn vị tính chính", example = "Bao")
-    val primaryUnit: String,
+    @field:NotNull(message = "Primary unit is required")
+    @field:Schema(description = "ID đơn vị tính chính (UUID)", example = "550e8400-e29b-41d4-a716-446655440001")
+    val primaryUnitId: UUID,
 
     @field:NotNull(message = "Price is required")
     @field:DecimalMin(value = "1", message = "Price must be greater than 0")
@@ -42,15 +40,18 @@ data class CreateProductRequest(
     val costPrice: BigDecimal? = null,
 
     @field:DecimalMin(value = "0", message = "Stock cannot be negative")
-    @field:Schema(description = "Tồn kho hiện tại", example = "150")
+    @field:Schema(description = "Tồn kho hiện tại (số nguyên)", example = "150")
     val stock: BigDecimal? = BigDecimal.ZERO,
 
     @field:DecimalMin(value = "0", message = "Min stock cannot be negative")
-    @field:Schema(description = "Tồn tối thiểu (cảnh báo)", example = "20")
+    @field:Schema(description = "Tồn tối thiểu (số nguyên, cảnh báo)", example = "20")
     val minStock: BigDecimal? = BigDecimal.ZERO,
 
-    @field:Schema(description = "URL hình ảnh", example = "https://example.com/ximang.jpg")
+    @field:Schema(description = "URL hình ảnh (external URL hoặc fallback)", example = "https://example.com/ximang.jpg")
     val imageUrl: String? = null,
+
+    @field:Schema(description = "Danh sách MinIO objectKey — frontend upload trước, pass key vào đây (tối đa 5)")
+    val imageKeys: List<String> = emptyList(),
 
     @field:Size(max = 100, message = "Barcode must not exceed 100 characters")
     @field:Schema(description = "Mã vạch", example = "8934567890123")
@@ -66,8 +67,8 @@ data class CreateProductRequest(
 fun CreateProductRequest.toEntity(ownerId: UUID): ProductEntity = ProductEntity(
     ownerId = ownerId,
     name = name.trim(),
-    category = category?.trim(),
-    primaryUnit = primaryUnit.trim(),
+    categoryId = categoryId,
+    primaryUnitId = primaryUnitId,
     price = price,
     costPrice = costPrice,
     stock = stock ?: BigDecimal.ZERO,
