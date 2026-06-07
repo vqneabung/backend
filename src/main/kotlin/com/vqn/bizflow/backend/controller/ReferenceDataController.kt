@@ -2,11 +2,14 @@ package com.vqn.bizflow.backend.controller
 
 import com.vqn.bizflow.backend.dto.ApiResponse
 import com.vqn.bizflow.backend.product.dto.CategoryResponse
+import com.vqn.bizflow.backend.product.dto.CreateCategoryRequest
+import com.vqn.bizflow.backend.product.dto.CreateUnitRequest
 import com.vqn.bizflow.backend.product.dto.UnitResponse
 import com.vqn.bizflow.backend.product.service.ReferenceDataService
 import com.vqn.bizflow.backend.util.SecurityUtils
 import io.swagger.v3.oas.annotations.Operation
 import io.swagger.v3.oas.annotations.tags.Tag
+import jakarta.validation.Valid
 import org.springframework.http.HttpStatus
 import org.springframework.http.ResponseEntity
 import org.springframework.security.access.prepost.PreAuthorize
@@ -45,10 +48,9 @@ class ReferenceDataController(
     @PreAuthorize("hasAnyRole('USER', 'ADMIN')")
     fun createUnit(
         auth: Authentication,
-        @RequestParam name: String,
-        @RequestParam(required = false) description: String?,
+        @RequestBody @Valid request: CreateUnitRequest,
     ): ResponseEntity<ApiResponse<UnitResponse>> {
-        val result = referenceDataService.createUnit(SecurityUtils.getUserId(auth), name, description)
+        val result = referenceDataService.createUnit(SecurityUtils.getUserId(auth), request.name, request.description)
         return ResponseEntity.status(HttpStatus.CREATED)
             .body(ApiResponse.created(result, "Unit created"))
     }
@@ -58,10 +60,9 @@ class ReferenceDataController(
     @PreAuthorize("hasAnyRole('USER', 'ADMIN')")
     fun findOrCreateUnit(
         auth: Authentication,
-        @RequestParam name: String,
-        @RequestParam(required = false) description: String?,
+        @RequestBody @Valid request: CreateUnitRequest,
     ): ResponseEntity<ApiResponse<UnitResponse>> {
-        val result = referenceDataService.findOrCreateUnit(SecurityUtils.getUserId(auth), name, description)
+        val result = referenceDataService.findOrCreateUnit(SecurityUtils.getUserId(auth), request.name, request.description)
         return ResponseEntity.ok(ApiResponse.success(result))
     }
 
@@ -79,10 +80,9 @@ class ReferenceDataController(
     @PreAuthorize("hasAnyRole('USER', 'ADMIN')")
     fun createCategory(
         auth: Authentication,
-        @RequestParam name: String,
-        @RequestParam(required = false) description: String?,
+        @RequestBody @Valid request: CreateCategoryRequest,
     ): ResponseEntity<ApiResponse<CategoryResponse>> {
-        val result = referenceDataService.createCategory(SecurityUtils.getUserId(auth), name, description)
+        val result = referenceDataService.createCategory(SecurityUtils.getUserId(auth), request.name, request.description)
         return ResponseEntity.status(HttpStatus.CREATED)
             .body(ApiResponse.created(result, "Category created"))
     }
@@ -92,10 +92,9 @@ class ReferenceDataController(
     @PreAuthorize("hasAnyRole('USER', 'ADMIN')")
     fun findOrCreateCategory(
         auth: Authentication,
-        @RequestParam name: String,
-        @RequestParam(required = false) description: String?,
+        @RequestBody @Valid request: CreateCategoryRequest,
     ): ResponseEntity<ApiResponse<CategoryResponse>> {
-        val result = referenceDataService.findOrCreateCategory(SecurityUtils.getUserId(auth), name, description)
+        val result = referenceDataService.findOrCreateCategory(SecurityUtils.getUserId(auth), request.name, request.description)
         return ResponseEntity.ok(ApiResponse.success(result))
     }
 }
