@@ -17,14 +17,17 @@ import org.springframework.web.bind.annotation.*
  * ReferenceDataController — API cho danh mục và đơn vị tính.
  *
  * Các dropdown trên form product:
- * - GET /api/units → list units (global + user-defined)
- * - GET /api/categories → list categories (global + user-defined)
- * - POST /api/units → tạo unit mới (user-defined)
- * - POST /api/categories → tạo category mới (user-defined)
+ * - GET /api/reference/units → list units (global + user-defined)
+ * - GET /api/reference/categories → list categories (global + user-defined)
+ * - POST /api/reference/units → tạo unit mới (user-defined)
+ * - POST /api/reference/categories → tạo category mới (user-defined)
+ *
+ * NOTE: @RequestMapping("/api/reference") khớp với front-end:
+ *   TanStack Query hooks trong query/reference.ts gọi /api/reference/...
  */
 @Tag(name = "Reference Data", description = "Danh mục & đơn vị tính")
 @RestController
-@RequestMapping("/api")
+@RequestMapping("/api/reference")
 class ReferenceDataController(
     private val referenceDataService: ReferenceDataService,
 ) {

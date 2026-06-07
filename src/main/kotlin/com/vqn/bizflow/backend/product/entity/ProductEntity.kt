@@ -2,6 +2,7 @@ package com.vqn.bizflow.backend.product.entity
 
 import com.vqn.bizflow.backend.entity.BaseEntity
 import jakarta.persistence.*
+import org.hibernate.annotations.Formula
 import java.math.BigDecimal
 import java.time.Instant
 import java.util.UUID
@@ -17,8 +18,8 @@ import java.util.UUID
  * - primaryUnitId → units(id): đơn vị tính chính
  * - categoryId → categories(id): danh mục (nullable)
  *
- * Các @ManyToOne read-only (insertable=false, updatable=false) để mapper
- * có thể lấy name từ bảng reference mà không cần join thủ công.
+ * Các @Formula (SQL subquery) để lấy name từ bảng reference mà không
+ * cần @ManyToOne read-only — tránh trigger extra SELECT / FK constraint.
  *
  * Kế thừa BaseEntity: id (UUID) + createdAt.
  * updatedAt khai báo riêng tại đây (không ở BaseEntity vì Hibernate 7 auto-detect).
@@ -102,17 +103,15 @@ class ProductEntity(
     var images: MutableList<ProductImageEntity> = mutableListOf(),
 ) : BaseEntity() {
 
-    // ===== Read-only @ManyToOne references (name resolution for mapper) =====
+    // ===== @Formula fields (name resolution via SQL subquery, avoids FK join) =====
 
-    /** Category entity — read-only, dùng để lấy categoryName trong mapper */
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "category_id", referencedColumnName = "id", insertable = false, updatable = false)
-    var categoryRef: CategoryEntity? = null
+    /** Tên danh mục — computed via @Formula từ categories table */
+    @Formula("(SELECT c.name FROM categories c WHERE c.id = category_id)")
+    var categoryName: String? = null
 
-    /** Unit entity — read-only, dùng để lấy primaryUnitName trong mapper */
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "primary_unit_id", referencedColumnName = "id", insertable = false, updatable = false)
-    var primaryUnitRef: UnitEntity? = null
+    /** Tên đơn vị tính chính — computed via @Formula từ units table */
+    @Formula("(SELECT u.name FROM units u WHERE u.id = primary_unit_id)")
+    var primaryUnitName: String? = null
 
     /**
      * Helper: thêm image với position tự động (cuối danh sách).

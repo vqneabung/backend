@@ -39,8 +39,8 @@ import java.util.UUID
  * - Optimistic locking (race condition)
  *
  * Dùng MapStruct (ProductMapper) để chuyển Entity → Response tự động.
- * @ManyToOne read-only references (categoryRef, primaryUnitRef) được
- * JPA tự động load để mapper lấy được categoryName / primaryUnitName.
+ * @Formula fields (categoryName, primaryUnitName) tính qua SQL subquery
+ * tại query time — không cần @ManyToOne read-only.
  */
 @Service
 @Transactional

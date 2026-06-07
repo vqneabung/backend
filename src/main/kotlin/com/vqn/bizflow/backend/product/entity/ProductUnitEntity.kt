@@ -39,9 +39,4 @@ class ProductUnitEntity(
 
     @Column(precision = 18, scale = 2)
     var conversionRate: BigDecimal? = null,
-
-    /** Read-only: lấy tên đơn vị cho mapper */
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "unit_id", referencedColumnName = "id", insertable = false, updatable = false)
-    var unitRef: UnitEntity? = null,
 )
