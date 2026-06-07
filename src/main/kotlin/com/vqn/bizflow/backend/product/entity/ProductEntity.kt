@@ -2,7 +2,7 @@ package com.vqn.bizflow.backend.product.entity
 
 import com.vqn.bizflow.backend.entity.BaseEntity
 import jakarta.persistence.*
-import org.hibernate.annotations.Formula
+import org.hibernate.annotations.SQLRestriction
 import java.math.BigDecimal
 import java.time.Instant
 import java.util.UUID
@@ -15,11 +15,12 @@ import java.util.UUID
  * Snapshot giá: giá tại thời điểm bán được lưu riêng ở đơn hàng (không lấy từ đây).
  *
  * FK references:
- * - primaryUnitId → units(id): đơn vị tính chính
- * - categoryId → categories(id): danh mục (nullable)
+ * - primaryUnit → units(id): đơn vị tính chính (NOT NULL)
+ * - category → categories(id): danh mục (nullable)
  *
- * Các @Formula (SQL subquery) để lấy name từ bảng reference mà không
- * cần @ManyToOne read-only — tránh trigger extra SELECT / FK constraint.
+ * @ManyToOne writeable (ko có insertable/updatable=false) cho phép set FK
+ * qua lightweight proxy (getReferenceById) thay vì load cả entity.
+ * @SQLRestriction tự động filter is_active = 1 ở mọi query.
  *
  * Kế thừa BaseEntity: id (UUID) + createdAt.
  * updatedAt khai báo riêng tại đây (không ở BaseEntity vì Hibernate 7 auto-detect).
@@ -32,6 +33,7 @@ import java.util.UUID
         Index(name = "idx_products_barcode", columnList = "barcode"),
     ]
 )
+@SQLRestriction("is_active = 1")
 class ProductEntity(
     /** User ID của chủ cửa hàng (UUID) — FK → users(id) */
     @Column(nullable = false)
@@ -40,14 +42,6 @@ class ProductEntity(
     /** Tên sản phẩm — unique trong cùng owner (khi is_active = true) */
     @Column(nullable = false, length = 255)
     var name: String,
-
-    /** FK → categories(id) — nullable nếu chưa chọn danh mục */
-    @Column
-    var categoryId: UUID? = null,
-
-    /** FK → units(id) — đơn vị tính chính */
-    @Column(nullable = false)
-    var primaryUnitId: UUID,
 
     /** Giá bán (VND) — phải > 0 */
     @Column(nullable = false, precision = 18, scale = 0)
@@ -103,15 +97,22 @@ class ProductEntity(
     var images: MutableList<ProductImageEntity> = mutableListOf(),
 ) : BaseEntity() {
 
-    // ===== @Formula fields (name resolution via SQL subquery, avoids FK join) =====
+    // ===== @ManyToOne associations (writeable, set by getReferenceById) =====
+    //
+    // Không cần insertable/updatable=false vì Hibernate 7 cấm 2 logical names
+    // trên cùng 1 physical column. Service set FK qua getReferenceById()
+    // (lightweight proxy — không SELECT entity).
+    // @EntityGraph trong repository eager fetch để tránh N+1.
 
-    /** Tên danh mục — computed via @Formula từ categories table */
-    @Formula("(SELECT c.name FROM categories c WHERE c.id = category_id)")
-    var categoryName: String? = null
+    /** Danh mục — nullable (optional FK) */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "category_id")
+    var category: CategoryEntity? = null
 
-    /** Tên đơn vị tính chính — computed via @Formula từ units table */
-    @Formula("(SELECT u.name FROM units u WHERE u.id = primary_unit_id)")
-    var primaryUnitName: String? = null
+    /** Đơn vị tính chính — NOT NULL */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "primary_unit_id", nullable = false)
+    var primaryUnit: UnitEntity? = null
 
     /**
      * Helper: thêm image với position tự động (cuối danh sách).

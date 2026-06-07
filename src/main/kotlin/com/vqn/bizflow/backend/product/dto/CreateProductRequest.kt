@@ -67,8 +67,6 @@ data class CreateProductRequest(
 fun CreateProductRequest.toEntity(ownerId: UUID): ProductEntity = ProductEntity(
     ownerId = ownerId,
     name = name.trim(),
-    categoryId = categoryId,
-    primaryUnitId = primaryUnitId,
     price = price,
     costPrice = costPrice,
     stock = stock ?: BigDecimal.ZERO,

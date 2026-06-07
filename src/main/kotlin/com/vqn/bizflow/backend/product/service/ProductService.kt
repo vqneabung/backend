@@ -14,14 +14,15 @@ import com.vqn.bizflow.backend.product.entity.ProductEntity
 import com.vqn.bizflow.backend.product.entity.ProductImageEntity
 import com.vqn.bizflow.backend.product.entity.ProductUnitEntity
 import com.vqn.bizflow.backend.product.mapper.ProductMapper
+import com.vqn.bizflow.backend.product.repository.CategoryRepository
 import com.vqn.bizflow.backend.product.repository.ProductImageRepository
 import com.vqn.bizflow.backend.product.repository.ProductRepository
 import com.vqn.bizflow.backend.product.repository.ProductUnitRepository
+import com.vqn.bizflow.backend.product.repository.UnitRepository
 import org.slf4j.LoggerFactory
 import org.springframework.data.domain.Page
 import org.springframework.data.domain.PageRequest
 import org.springframework.data.domain.Sort
-import org.springframework.orm.ObjectOptimisticLockingFailureException
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 import java.math.BigDecimal
@@ -36,11 +37,10 @@ import java.util.UUID
  * - Authorization (chỉ owner mới CRUD)
  * - Duplicate (tên trùng, barcode trùng)
  * - Soft delete (không xóa vật lý)
- * - Optimistic locking (race condition)
+ * - Optimistic locking (race condition) — xử lý bởi GlobalExceptionHandler
  *
  * Dùng MapStruct (ProductMapper) để chuyển Entity → Response tự động.
- * @Formula fields (categoryName, primaryUnitName) tính qua SQL subquery
- * tại query time — không cần @ManyToOne read-only.
+ * categoryName/primaryUnitName map từ @ManyToOne lazy join.
  */
 @Service
 @Transactional
@@ -49,6 +49,8 @@ class ProductService(
     private val productUnitRepo: ProductUnitRepository,
     private val productImageRepo: ProductImageRepository,
     private val productMapper: ProductMapper,
+    private val categoryRepo: CategoryRepository,
+    private val unitRepo: UnitRepository,
 ) {
     companion object {
         private const val MAX_PAGE_SIZE = 100
@@ -67,13 +69,13 @@ class ProductService(
         val trimmedName = request.name.trim()
 
         // UC-03: Trùng tên (cùng owner)
-        if (productRepo.existsByNameAndOwnerIdAndIsActive(trimmedName, userId, true)) {
+        if (productRepo.existsByNameAndOwnerId(trimmedName, userId)) {
             throw DuplicateException("Product with this name already exists")
         }
 
         // UC-15: Trùng barcode
         if (!request.barcode.isNullOrBlank()) {
-            if (productRepo.existsByBarcodeAndIsActive(request.barcode.trim(), true)) {
+            if (productRepo.existsByBarcode(request.barcode.trim())) {
                 throw DuplicateException("Barcode already exists")
             }
         }
@@ -86,7 +88,13 @@ class ProductService(
 
         val entity = request.toEntity(userId)
 
-        // Lưu trước để có id, sau đó mới thêm images (cần productId FK)
+        // Set FK associations via lightweight proxy (không SELECT entity)
+        if (request.categoryId != null) {
+            entity.category = categoryRepo.getReferenceById(request.categoryId)
+        }
+        entity.primaryUnit = unitRepo.getReferenceById(request.primaryUnitId)
+
+        // Lưu entity (category/primaryUnit map từ @ManyToOne, không cần refresh)
         val saved = productRepo.save(entity)
 
         // Thêm images nếu có
@@ -123,15 +131,19 @@ class ProductService(
         // UC-19/20: Check duplicate name nếu đổi tên
         request.name?.trim()?.let { newName ->
             if (newName != product.name) {
-                if (productRepo.existsByNameAndOwnerIdAndIsActive(newName, userId, true)) {
+                if (productRepo.existsByNameAndOwnerId(newName, userId)) {
                     throw DuplicateException("Product with this name already exists")
                 }
                 product.name = newName
             }
         }
 
-        request.categoryId?.let { product.categoryId = it }
-        request.primaryUnitId?.let { product.primaryUnitId = it }
+        request.categoryId?.let {
+            product.category = categoryRepo.getReferenceById(it)
+        }
+        request.primaryUnitId?.let {
+            product.primaryUnit = unitRepo.getReferenceById(it)
+        }
         request.price?.let { validatePositive(it, "Price"); product.price = it }
         request.costPrice?.let { product.costPrice = it }
         request.stock?.let { validateNonNegative(it, "Stock"); product.stock = it }
@@ -145,7 +157,7 @@ class ProductService(
 
         request.barcode?.trim()?.let {
             if (it != product.barcode) {
-                if (productRepo.existsByBarcodeAndIsActive(it, true)) {
+                if (productRepo.existsByBarcode(it)) {
                     throw DuplicateException("Barcode already exists")
                 }
             }
@@ -153,13 +165,9 @@ class ProductService(
         }
         product.updatedAt = Instant.now()
 
-        try {
-            val saved = productRepo.save(product)
-            return productMapper.toResponse(saved)
-        } catch (e: ObjectOptimisticLockingFailureException) {
-            // UC-23: Race condition
-            throw ConflictException("Product was modified by another user. Please refresh and retry.")
-        }
+        // OptimisticLockException được global handler bắt → 409 tự động
+        val saved = productRepo.save(product)
+        return productMapper.toResponse(saved)
     }
 
     /**
@@ -206,7 +214,7 @@ class ProductService(
         val pageable = PageRequest.of(actualPage, actualSize, Sort.by(actualSortDir, actualSortBy))
 
         val result: Page<ProductEntity> = if (search.isNullOrBlank() && categoryId == null) {
-            productRepo.findByOwnerIdAndIsActive(userId, true, pageable)
+            productRepo.findByOwnerId(userId, pageable)
         } else {
             productRepo.searchByOwnerId(
                 ownerId = userId,

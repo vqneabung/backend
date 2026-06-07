@@ -11,6 +11,7 @@ import com.vqn.bizflow.backend.exception.UnauthorizedException
 import org.springframework.http.HttpStatus
 import org.springframework.http.ResponseEntity
 import org.springframework.http.converter.HttpMessageNotReadableException
+import org.springframework.orm.ObjectOptimisticLockingFailureException
 import org.springframework.security.access.AccessDeniedException
 import org.springframework.security.core.AuthenticationException
 import org.springframework.web.bind.MethodArgumentNotValidException
@@ -100,6 +101,17 @@ class GlobalExceptionHandler {
         return ResponseEntity
             .status(HttpStatus.UNAUTHORIZED)
             .body(ApiErrorResponse(message = "Authentication failed"))
+    }
+
+    // ── Optimistic locking (409) ──
+
+    @ExceptionHandler(ObjectOptimisticLockingFailureException::class)
+    fun handleOptimisticLock(ex: ObjectOptimisticLockingFailureException): ResponseEntity<ApiErrorResponse> {
+        return ResponseEntity
+            .status(HttpStatus.CONFLICT)
+            .body(ApiErrorResponse(
+                message = "Dữ liệu đã bị thay đổi bởi người khác. Vui lòng tải lại và thử lại."
+            ))
     }
 
     // ── Catch-all (500) ──

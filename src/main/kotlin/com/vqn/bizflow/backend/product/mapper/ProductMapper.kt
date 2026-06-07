@@ -10,8 +10,8 @@ import org.mapstruct.Mapping
  *
  * Tự động map các field trùng tên.
  * Field đặc biệt:
- * - categoryName: mapped trực tiếp từ entity (computed via @Formula)
- * - primaryUnitName: mapped trực tiếp từ entity (computed via @Formula)
+ * - categoryName: từ entity.category.name (@ManyToOne lazy)
+ * - primaryUnitName: từ entity.primaryUnit.name (@ManyToOne lazy)
  * - isLowStock: computed từ stock < minStock (dùng expression)
  * - imageKeys: lấy từ entity.images theo position ASC (expression)
  *
@@ -23,14 +23,18 @@ interface ProductMapper {
     /**
      * Chuyển Entity → Response.
      *
-     * - categoryName: từ entity.categoryName (@Formula)
-     * - primaryUnitName: từ entity.primaryUnitName (@Formula)
+     * - categoryId: từ entity.category?.id (@ManyToOne)
+     * - primaryUnitId: từ entity.primaryUnit?.id (@ManyToOne)
+     * - categoryName: từ entity.category?.name (@ManyToOne)
+     * - primaryUnitName: từ entity.primaryUnit?.name (@ManyToOne)
      * - isLowStock: computed: stock < minStock.
      * - imageKeys: sorted theo position ASC, lấy objectKey.
      */
     @Mapping(target = "isActive", source = "active")
-    @Mapping(target = "categoryName", source = "categoryName")
-    @Mapping(target = "primaryUnitName", source = "primaryUnitName")
+    @Mapping(target = "categoryId", expression = "java(entity.getCategory() != null ? entity.getCategory().getId() : null)")
+    @Mapping(target = "categoryName", expression = "java(entity.getCategory() != null ? entity.getCategory().getName() : null)")
+    @Mapping(target = "primaryUnitId", expression = "java(entity.getPrimaryUnit().getId())")
+    @Mapping(target = "primaryUnitName", expression = "java(entity.getPrimaryUnit().getName())")
     @Mapping(target = "isLowStock", expression = "java(entity.getStock().compareTo(entity.getMinStock()) < 0)")
     @Mapping(
         target = "imageKeys",
