@@ -5,15 +5,15 @@ import jakarta.persistence.*
 import java.util.UUID
 
 /**
- * Hình ảnh sản phẩm — quan hệ 1-n với ProductEntity.
+ * Hình ảnh sản phẩm — quan hệ 1-n với ProductEntity (bidirectional).
  *
  * Cho phép 1 sản phẩm có tối đa 5 ảnh. Mỗi ảnh lưu MinIO objectKey
  * (VD: "products/uuid.jpg") — frontend dùng `getImageUrl(key)` để resolve
  * presigned URL khi hiển thị.
  *
  * Lifecycle:
- * - Cascade ALL từ ProductEntity.images: thêm/xóa ProductImageEntity
- *   thông qua parent (orphanRemoval = true)
+ * - Cascade ALL từ ProductEntity.images (mappedBy = "product"):
+ *   thêm/xóa ProductImageEntity thông qua parent (orphanRemoval = true)
  * - Lazy load mặc định — tránh N+1 khi list products
  *
  * Position field: sắp xếp thứ tự hiển thị (0 = ảnh đầu tiên).
@@ -30,9 +30,10 @@ import java.util.UUID
     ],
 )
 class ProductImageEntity(
-    /** FK → products.id */
-    @Column(name = "product_id", nullable = false)
-    val productId: UUID,
+    /** Parent product — owned by @JoinColumn(name = "product_id") */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "product_id", nullable = false)
+    var product: ProductEntity? = null,
 
     /** MinIO object key — VD: "products/uuid.jpg" */
     @Column(nullable = false, length = 500)

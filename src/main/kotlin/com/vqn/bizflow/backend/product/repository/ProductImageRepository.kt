@@ -10,18 +10,17 @@ import java.util.UUID
 /**
  * Repository cho ProductImageEntity.
  *
- * Tất cả query đều filter theo productId — không bao giờ truy vấn toàn bộ.
+ * Tất cả query đều filter theo parent product — không bao giờ truy vấn toàn bộ.
+ * Dùng `i.product.id` (bidirectional @ManyToOne) trong JPQL.
  */
 interface ProductImageRepository : JpaRepository<ProductImageEntity, UUID> {
 
     /** Lấy tất cả ảnh của 1 product, sắp xếp theo position ASC */
-    fun findByProductIdOrderByPositionAsc(productId: UUID): List<ProductImageEntity>
-
-    /** Đếm số ảnh hiện tại của 1 product (validate max 5 trước khi thêm) */
-    fun countByProductId(productId: UUID): Int
+    @Query("SELECT i FROM ProductImageEntity i WHERE i.product.id = :productId ORDER BY i.position ASC")
+    fun findImagesByProductId(@Param("productId") productId: UUID): List<ProductImageEntity>
 
     /** Xóa tất cả ảnh của 1 product — dùng khi replace toàn bộ ảnh */
     @Modifying
-    @Query("DELETE FROM ProductImageEntity i WHERE i.productId = :productId")
+    @Query("DELETE FROM ProductImageEntity i WHERE i.product.id = :productId")
     fun deleteByProductId(@Param("productId") productId: UUID)
 }

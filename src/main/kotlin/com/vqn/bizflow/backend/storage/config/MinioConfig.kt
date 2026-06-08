@@ -28,7 +28,7 @@ class MinioConfig {
         var endpoint: String = "http://localhost:9000",
         var accessKey: String = "minioadmin",
         var secretKey: String = "minioadmin",
-        var bucket: String = "bizflow-files",
+        var bucket: String = "bizflow",
         var presignedUrlExpiry: Int = 3600,
     )
 }

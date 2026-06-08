@@ -97,19 +97,16 @@ class ProductService(
         // Lưu entity (category/primaryUnit map từ @ManyToOne, không cần refresh)
         val saved = productRepo.save(entity)
 
-        // Thêm images nếu có
-        request.imageKeys.take(ProductEntity.MAX_IMAGES).forEach { key ->
-            saved.addImage(objectKey = key, uploadedBy = userId)
-        }
-        val finalSaved = if (request.imageKeys.isNotEmpty()) productRepo.save(saved) else saved
+        // Persist images + đồng bộ entity.images cho response mapper
+        persistImages(product = saved, objectKeys = request.imageKeys, uploadedBy = userId)
 
         // UC-09: Cảnh báo tồn kho thấp ngay khi tạo
-        if (finalSaved.stock < finalSaved.minStock) {
+        if (saved.stock < saved.minStock) {
             log.warn("Stock {} is below minimum threshold {} for product '{}'",
-                finalSaved.stock, finalSaved.minStock, finalSaved.name)
+                saved.stock, saved.minStock, saved.name)
         }
 
-        return productMapper.toResponse(finalSaved)
+        return productMapper.toResponse(saved)
     }
 
     /**
@@ -150,9 +147,9 @@ class ProductService(
         request.minStock?.let { validateNonNegative(it, "Min stock"); product.minStock = it }
         request.imageUrl?.trim()?.let { product.imageUrl = it }
 
-        // Replace toàn bộ ảnh (nếu imageKeys được gửi)
+        // Persist images + đồng bộ entity.images cho response mapper
         request.imageKeys?.let { keys ->
-            product.replaceImages(objectKeys = keys, uploadedBy = userId)
+            persistImages(product = product, objectKeys = keys, uploadedBy = userId)
         }
 
         request.barcode?.trim()?.let {
@@ -272,6 +269,37 @@ class ProductService(
             throw ForbiddenException("You can only edit your own products")
         }
         return product
+    }
+
+    /**
+     * Persist image list cho product: replace toàn bộ → re-sync entity collection.
+     *
+     * Dùng ProductImageRepository.save()/deleteByProductId() thay vì
+     * @OneToMany cascade để đảm bảo Hibernate 7 + Kotlin generate đúng
+     * INSERT/DELETE SQL (PROPERTY access + param-property target có thể
+     * gây issue với cascade tracking).
+     *
+     * Sau khi persist, đồng bộ entity.images để ProductMapper.toResponse()
+     * đọc được imageKeys mà không cần extra SELECT.
+     */
+    private fun persistImages(product: ProductEntity, objectKeys: List<String>, uploadedBy: UUID) {
+        // Delete existing + insert new (max MAX_IMAGES)
+        productImageRepo.deleteByProductId(product.id!!)
+        val keys = objectKeys.take(ProductEntity.MAX_IMAGES)
+        keys.forEachIndexed { idx, key ->
+            productImageRepo.save(
+                ProductImageEntity(
+                    product = product,
+                    objectKey = key,
+                    position = idx,
+                    uploadedBy = uploadedBy,
+                )
+            )
+        }
+
+        // Sync entity.images cho mapper
+        product.images.clear()
+        productImageRepo.findImagesByProductId(product.id!!).forEach { product.images.add(it) }
     }
 
     private fun validatePositive(value: BigDecimal, field: String) {

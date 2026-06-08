@@ -83,16 +83,19 @@ class ProductEntity(
     /**
      * Danh sách hình ảnh (tối đa 5 ảnh / sản phẩm).
      *
-     * Cascade ALL: thêm/xóa ProductImageEntity thông qua parent.
-     * orphanRemoval = true: khi remove khỏi list, entity bị xóa DB.
-     * FetchType.LAZY: tránh N+1 khi list products — dùng fetch join khi cần.
+     * Bidirectional: ProductImageEntity.product trỏ ngược lại.
+     * Service dùng ProductImageRepository.save()/deleteByProductId() thay vì
+     * dựa vào cascade, để đảm bảo Hibernate 7 + Kotlin (PROPERTY access,
+     * param-property target) generate đúng INSERT/DELETE SQL.
+     *
+     * Collection này được sync thủ công sau persist để mapper đọc imageKeys.
      */
     @OneToMany(
         fetch = FetchType.LAZY,
         cascade = [CascadeType.ALL],
         orphanRemoval = true,
+        mappedBy = "product",
     )
-    @JoinColumn(name = "product_id", referencedColumnName = "id")
     @OrderBy("position ASC")
     var images: MutableList<ProductImageEntity> = mutableListOf(),
 ) : BaseEntity() {
@@ -113,32 +116,6 @@ class ProductEntity(
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "primary_unit_id", nullable = false)
     var primaryUnit: UnitEntity? = null
-
-    /**
-     * Helper: thêm image với position tự động (cuối danh sách).
-     * Giữ helper ở entity để service không phải track position thủ công.
-     */
-    fun addImage(objectKey: String, uploadedBy: UUID) {
-        images.add(
-            ProductImageEntity(
-                productId = id ?: throw IllegalStateException("Product must be persisted first"),
-                objectKey = objectKey,
-                position = images.size,
-                uploadedBy = uploadedBy,
-            )
-        )
-    }
-
-    /**
-     * Helper: thay thế toàn bộ danh sách ảnh (giữ tối đa 5).
-     * Dùng khi update — orphanRemoval tự động xóa entity cũ.
-     */
-    fun replaceImages(objectKeys: List<String>, uploadedBy: UUID) {
-        images.clear()
-        objectKeys.take(MAX_IMAGES).forEach { key ->
-            addImage(key, uploadedBy)
-        }
-    }
 
     companion object {
         const val MAX_IMAGES = 5

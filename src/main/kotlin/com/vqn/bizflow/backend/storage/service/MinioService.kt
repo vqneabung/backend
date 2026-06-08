@@ -27,11 +27,12 @@ class MinioService(
 ) {
     private val log = LoggerFactory.getLogger(MinioService::class.java)
 
-    /** Bucket name lấy từ properties (mặc định: bizflow-files) */
+    /** Bucket name lấy từ properties (mặc định: bizflow) */
     val bucket: String get() = minioProperties.bucket
 
     @PostConstruct
     fun ensureBucketExists() {
+        log.info("MinIO configured: endpoint={}, bucket={}", minioProperties.endpoint, bucket)
         try {
             val exists = minioClient.bucketExists(
                 BucketExistsArgs.builder().bucket(bucket).build()
