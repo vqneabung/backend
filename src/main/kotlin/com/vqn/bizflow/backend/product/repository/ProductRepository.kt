@@ -5,8 +5,10 @@ import org.springframework.data.domain.Page
 import org.springframework.data.domain.Pageable
 import org.springframework.data.jpa.repository.EntityGraph
 import org.springframework.data.jpa.repository.JpaRepository
+import org.springframework.data.jpa.repository.Modifying
 import org.springframework.data.jpa.repository.Query
 import org.springframework.data.repository.query.Param
+import java.math.BigDecimal
 import java.util.UUID
 
 /**
@@ -45,6 +47,14 @@ interface ProductRepository : JpaRepository<ProductEntity, UUID> {
 
     /** Danh sách SP sắp hết hàng (tồn <= ngưỡng) — chỉ active nhờ @SQLRestriction */
     fun findByOwnerIdAndStockLessThanEqualOrderByStockAsc(
-        ownerId: UUID, threshold: java.math.BigDecimal,
+        ownerId: UUID, threshold: BigDecimal,
     ): List<ProductEntity>
+
+    /** Atomic increment stock — dùng cho stock import */
+    @Modifying
+    @Query("UPDATE ProductEntity p SET p.stock = p.stock + :quantity WHERE p.id = :productId")
+    fun incrementStock(
+        @Param("productId") productId: UUID,
+        @Param("quantity") quantity: BigDecimal,
+    )
 }
