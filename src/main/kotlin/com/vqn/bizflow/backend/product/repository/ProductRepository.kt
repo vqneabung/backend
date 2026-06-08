@@ -65,4 +65,23 @@ interface ProductRepository : JpaRepository<ProductEntity, UUID> {
         @Param("productId") productId: UUID,
         @Param("quantity") quantity: BigDecimal,
     )
+
+    // ═══════════════════════════════════════════════
+    // Report queries
+    // ═══════════════════════════════════════════════
+
+    @Query("SELECT COUNT(p) FROM ProductEntity p WHERE p.ownerId = :ownerId")
+    fun countByOwnerId(@Param("ownerId") ownerId: UUID): Long
+
+    @Query("SELECT COALESCE(SUM(p.stock * COALESCE(p.costPrice, 0)), 0) FROM ProductEntity p WHERE p.ownerId = :ownerId")
+    fun sumInventoryValue(@Param("ownerId") ownerId: UUID): BigDecimal
+
+    @Query("SELECT COALESCE(SUM(p.stock), 0) FROM ProductEntity p WHERE p.ownerId = :ownerId")
+    fun sumTotalStock(@Param("ownerId") ownerId: UUID): BigDecimal
+
+    @Query("SELECT COUNT(p) FROM ProductEntity p WHERE p.ownerId = :ownerId AND p.stock <= p.minStock")
+    fun countLowStock(@Param("ownerId") ownerId: UUID): Long
+
+    @Query("SELECT COALESCE(p.category.name, '(No category)'), COUNT(p) FROM ProductEntity p WHERE p.ownerId = :ownerId GROUP BY p.category.name ORDER BY COUNT(p) DESC")
+    fun countByCategory(@Param("ownerId") ownerId: UUID): List<Array<Any>>
 }

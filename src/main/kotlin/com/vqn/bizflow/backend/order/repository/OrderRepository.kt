@@ -6,6 +6,7 @@ import org.springframework.data.domain.Pageable
 import org.springframework.data.jpa.repository.JpaRepository
 import org.springframework.data.jpa.repository.Query
 import org.springframework.data.repository.query.Param
+import java.math.BigDecimal
 import java.time.Instant
 import java.util.UUID
 
@@ -42,4 +43,32 @@ interface OrderRepository : JpaRepository<OrderEntity, UUID> {
         start: Instant,
         end: Instant,
     ): Long
+
+    // ═══════════════════════════════════════════════
+    // Report queries
+    // ═══════════════════════════════════════════════
+
+    @Query("SELECT COALESCE(SUM(o.totalAmount), 0) FROM OrderEntity o WHERE o.ownerId = :ownerId AND o.status = :status AND o.createdAt BETWEEN :fromDate AND :toDate")
+    fun sumTotalAmountByOwnerIdAndStatusAndCreatedAtBetween(
+        @Param("ownerId") ownerId: UUID,
+        @Param("status") status: String,
+        @Param("fromDate") fromDate: Instant,
+        @Param("toDate") toDate: Instant,
+    ): BigDecimal
+
+    @Query("SELECT COUNT(o) FROM OrderEntity o WHERE o.ownerId = :ownerId AND o.status = :status AND o.createdAt BETWEEN :fromDate AND :toDate")
+    fun countByOwnerIdAndStatusAndCreatedAtBetween(
+        @Param("ownerId") ownerId: UUID,
+        @Param("status") status: String,
+        @Param("fromDate") fromDate: Instant,
+        @Param("toDate") toDate: Instant,
+    ): Long
+
+    @Query("SELECT o FROM OrderEntity o WHERE o.ownerId = :ownerId AND o.status = :status AND o.createdAt BETWEEN :fromDate AND :toDate ORDER BY o.createdAt ASC")
+    fun findByOwnerIdAndStatusAndCreatedAtBetween(
+        @Param("ownerId") ownerId: UUID,
+        @Param("status") status: String,
+        @Param("fromDate") fromDate: Instant,
+        @Param("toDate") toDate: Instant,
+    ): List<OrderEntity>
 }

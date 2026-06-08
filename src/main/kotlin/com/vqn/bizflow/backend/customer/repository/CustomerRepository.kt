@@ -35,4 +35,8 @@ interface CustomerRepository : JpaRepository<CustomerEntity, UUID> {
 
     /** Kiểm tra trùng tên (trong cùng owner) */
     fun existsByNameAndOwnerId(name: String, ownerId: UUID): Boolean
+
+    /** Đếm số customers active của owner */
+    @Query("SELECT COUNT(c) FROM CustomerEntity c WHERE c.ownerId = :ownerId")
+    fun countByOwnerId(@Param("ownerId") ownerId: UUID): Long
 }

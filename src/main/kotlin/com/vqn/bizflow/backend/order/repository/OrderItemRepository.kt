@@ -2,6 +2,8 @@ package com.vqn.bizflow.backend.order.repository
 
 import com.vqn.bizflow.backend.order.entity.OrderItemEntity
 import org.springframework.data.jpa.repository.JpaRepository
+import org.springframework.data.jpa.repository.Query
+import org.springframework.data.repository.query.Param
 import java.util.UUID
 
 /**
@@ -16,4 +18,21 @@ interface OrderItemRepository : JpaRepository<OrderItemEntity, UUID> {
 
     /** Đếm số items — dùng cho summary */
     fun countByOrderId(orderId: UUID): Int
+
+    // ═══════════════════════════════════════════════
+    // Report queries
+    // ═══════════════════════════════════════════════
+
+    /** Top sản phẩm bán chạy (từ đơn CONFIRMED) */
+    @Query("""
+        SELECT i.productId, i.productName, SUM(i.quantity), SUM(i.subtotal)
+        FROM OrderItemEntity i 
+        WHERE i.orderId IN (
+            SELECT o.id FROM OrderEntity o 
+            WHERE o.ownerId = :ownerId AND o.status = 'CONFIRMED'
+        )
+        GROUP BY i.productId, i.productName
+        ORDER BY SUM(i.quantity) DESC
+    """)
+    fun findTopSellingByOwnerId(@Param("ownerId") ownerId: UUID): List<Array<Any>>
 }
