@@ -14,8 +14,8 @@ import java.util.UUID
  */
 interface StockImportRepository : JpaRepository<StockImportEntity, UUID> {
 
-    /** List phiếu nhập của 1 owner (phân trang) */
-    fun findByOwnerIdOrderByCreatedAtDesc(ownerId: UUID, pageable: Pageable): Page<StockImportEntity>
+    /** List phiếu nhập của 1 owner (phân trang, sort qua Pageable) */
+    fun findByOwnerId(ownerId: UUID, pageable: Pageable): Page<StockImportEntity>
 
     /** Tìm 1 phiếu nhập theo owner (security check) */
     fun findByIdAndOwnerId(id: UUID, ownerId: UUID): StockImportEntity?

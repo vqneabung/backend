@@ -141,7 +141,7 @@ class StockImportService(
         val pageable = PageRequest.of(p - 1, s, Sort.by(Sort.Direction.DESC, "createdAt"))
 
         val result: Page<StockImportEntity> =
-            stockImportRepo.findByOwnerIdOrderByCreatedAtDesc(userId, pageable)
+            stockImportRepo.findByOwnerId(userId, pageable)
 
         // Batch count items tránh N+1 query (1 query thay vì N queries)
         val stockImportIds = result.content.mapNotNull { it.id }

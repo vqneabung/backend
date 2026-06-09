@@ -41,7 +41,6 @@ interface OrderRepository : JpaRepository<OrderEntity, UUID> {
     @Query("""
         SELECT o FROM OrderEntity o
         WHERE o.ownerId = :ownerId AND o.customerId = :customerId
-        ORDER BY o.createdAt DESC
     """)
     fun findByOwnerIdAndCustomerId(
         @Param("ownerId") ownerId: UUID,
