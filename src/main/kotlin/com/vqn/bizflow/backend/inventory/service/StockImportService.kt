@@ -14,6 +14,8 @@ import com.vqn.bizflow.backend.inventory.repository.StockImportItemRepository
 import com.vqn.bizflow.backend.inventory.repository.StockImportRepository
 import com.vqn.bizflow.backend.product.repository.ProductRepository
 import org.slf4j.LoggerFactory
+import org.springframework.context.MessageSource
+import org.springframework.context.i18n.LocaleContextHolder
 import org.springframework.data.domain.Page
 import org.springframework.data.domain.PageRequest
 import org.springframework.data.domain.Sort
@@ -41,8 +43,13 @@ class StockImportService(
     private val stockImportItemRepo: StockImportItemRepository,
     private val productRepo: ProductRepository,
     private val stockImportMapper: StockImportMapper,
+    private val messageSource: MessageSource,
 ) {
     private val log = LoggerFactory.getLogger(StockImportService::class.java)
+
+    /** Helper — lấy i18n message từ MessageSource */
+    private fun msg(code: String, vararg args: Any): String =
+        messageSource.getMessage(code, args, LocaleContextHolder.getLocale())
 
     companion object {
         private const val DEFAULT_PAGE = 1
@@ -70,14 +77,14 @@ class StockImportService(
             importDate = request.importDate ?: Instant.now(),
         )
         val saved = stockImportRepo.save(entity)
-        val savedId = saved.id!!
+        val savedId = requireNotNull(saved.id) { "StockImport ID must not be null after save" }
 
         // 4. Tạo items + update stock + tính tổng
         var totalCost = BigDecimal.ZERO
         val itemEntities = request.items.map { item ->
             // Kiểm tra product tồn tại
             if (!productRepo.existsById(item.productId)) {
-                throw ResourceNotFoundException("Product not found: ${item.productId}")
+                throw ResourceNotFoundException(msg("stock-import.product-not-found"))
             }
 
             val subtotal = item.quantity.multiply(item.unitCost)
@@ -97,7 +104,15 @@ class StockImportService(
 
         // 5. Update product stock (atomic increment)
         request.items.forEach { item ->
-            productRepo.incrementStock(item.productId, item.quantity)
+            val rowsAffected = productRepo.incrementStock(item.productId, item.quantity)
+            if (rowsAffected == 0) {
+                // Product bị xóa/soft-delete giữa existsById check và increment (edge case race)
+                // → log warning nhưng KHÔNG fail (đã validate trước đó)
+                log.warn(
+                    "Cannot increment stock for product {} (import ref={}): product not found",
+                    item.productId, refNumber
+                )
+            }
         }
 
         // 6. Update totalCost trên entity
@@ -128,8 +143,17 @@ class StockImportService(
         val result: Page<StockImportEntity> =
             stockImportRepo.findByOwnerIdOrderByCreatedAtDesc(userId, pageable)
 
+        // Batch count items tránh N+1 query (1 query thay vì N queries)
+        val stockImportIds = result.content.mapNotNull { it.id }
+        val itemCountMap: Map<UUID, Int> = if (stockImportIds.isEmpty()) {
+            emptyMap()
+        } else {
+            stockImportItemRepo.countByStockImportIds(stockImportIds)
+                .associate { row -> row[0] as UUID to (row[1] as Long).toInt() }
+        }
+
         val summaries = result.content.map { entity ->
-            val itemCount = stockImportItemRepo.countByStockImportId(entity.id!!)
+            val itemCount = itemCountMap[entity.id] ?: 0
             StockImportSummaryResponse.from(entity, itemCount)
         }
 
@@ -146,7 +170,7 @@ class StockImportService(
      */
     fun getById(userId: UUID, importId: UUID): StockImportResponse {
         val entity = stockImportRepo.findByIdAndOwnerId(importId, userId)
-            ?: throw ResourceNotFoundException("Stock import not found: $importId")
+            ?: throw ResourceNotFoundException(msg("stock-import.not-found"))
 
         val items = stockImportItemRepo.findByStockImportIdOrderByCreatedAt(importId)
         val itemResponses = items.map { item ->
@@ -165,10 +189,10 @@ class StockImportService(
     private fun validateItems(items: List<CreateStockImportItemRequest>) {
         items.forEach { item ->
             if (item.quantity <= BigDecimal.ZERO) {
-                throw BadRequestException("Quantity must be positive")
+                throw BadRequestException(msg("stock-import.quantity-positive"))
             }
             if (item.unitCost <= BigDecimal.ZERO) {
-                throw BadRequestException("Unit cost must be positive")
+                throw BadRequestException(msg("stock-import.cost-positive"))
             }
         }
     }

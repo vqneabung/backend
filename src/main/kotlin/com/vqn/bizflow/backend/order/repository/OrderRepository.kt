@@ -37,6 +37,18 @@ interface OrderRepository : JpaRepository<OrderEntity, UUID> {
     /** Tìm đơn hàng của 1 owner (kiểm tra ownership) */
     fun findByIdAndOwnerId(id: UUID, ownerId: UUID): OrderEntity?
 
+    /** List đơn hàng theo khách hàng — dùng cho Customer Purchase History (FR-17) */
+    @Query("""
+        SELECT o FROM OrderEntity o
+        WHERE o.ownerId = :ownerId AND o.customerId = :customerId
+        ORDER BY o.createdAt DESC
+    """)
+    fun findByOwnerIdAndCustomerId(
+        @Param("ownerId") ownerId: UUID,
+        @Param("customerId") customerId: UUID,
+        pageable: Pageable,
+    ): Page<OrderEntity>
+
     /** Đếm số đơn hôm nay (dùng cho sinh reference number) */
     fun countByOwnerIdAndCreatedAtBetween(
         ownerId: UUID,

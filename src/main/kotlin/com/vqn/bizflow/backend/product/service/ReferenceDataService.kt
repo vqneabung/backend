@@ -9,6 +9,8 @@ import com.vqn.bizflow.backend.product.entity.CategoryEntity
 import com.vqn.bizflow.backend.product.entity.UnitEntity
 import com.vqn.bizflow.backend.product.repository.CategoryRepository
 import com.vqn.bizflow.backend.product.repository.UnitRepository
+import org.springframework.context.MessageSource
+import org.springframework.context.i18n.LocaleContextHolder
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 import java.util.UUID
@@ -25,7 +27,11 @@ import java.util.UUID
 class ReferenceDataService(
     private val unitRepo: UnitRepository,
     private val categoryRepo: CategoryRepository,
+    private val messageSource: MessageSource,
 ) {
+    /** Helper — lấy i18n message từ MessageSource */
+    private fun msg(code: String, vararg args: Any): String =
+        messageSource.getMessage(code, args, LocaleContextHolder.getLocale())
 
     // ===== Units =====
 
@@ -37,10 +43,10 @@ class ReferenceDataService(
     /** Thêm đơn vị tính mới (user-defined). */
     fun createUnit(userId: UUID, name: String, description: String?): UnitResponse {
         val trimmedName = name.trim()
-        if (trimmedName.isEmpty()) throw BadRequestException("Unit name is required")
+        if (trimmedName.isEmpty()) throw BadRequestException(msg("reference.name-required"))
 
         if (unitRepo.existsByNameForOwner(trimmedName, userId)) {
-            throw DuplicateException("Unit '$trimmedName' already exists")
+            throw DuplicateException(msg("reference.duplicate", trimmedName))
         }
 
         val entity = UnitEntity(ownerId = userId, name = trimmedName, description = description?.trim())
@@ -69,10 +75,10 @@ class ReferenceDataService(
     /** Thêm danh mục mới (user-defined). */
     fun createCategory(userId: UUID, name: String, description: String?): CategoryResponse {
         val trimmedName = name.trim()
-        if (trimmedName.isEmpty()) throw BadRequestException("Category name is required")
+        if (trimmedName.isEmpty()) throw BadRequestException(msg("reference.name-required"))
 
         if (categoryRepo.existsByNameForOwner(trimmedName, userId)) {
-            throw DuplicateException("Category '$trimmedName' already exists")
+            throw DuplicateException(msg("reference.duplicate", trimmedName))
         }
 
         val entity = CategoryEntity(ownerId = userId, name = trimmedName, description = description?.trim())

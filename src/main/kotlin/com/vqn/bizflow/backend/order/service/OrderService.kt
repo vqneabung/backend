@@ -15,6 +15,8 @@ import com.vqn.bizflow.backend.order.repository.OrderItemRepository
 import com.vqn.bizflow.backend.order.repository.OrderRepository
 import com.vqn.bizflow.backend.product.repository.ProductRepository
 import org.slf4j.LoggerFactory
+import org.springframework.context.MessageSource
+import org.springframework.context.i18n.LocaleContextHolder
 import org.springframework.data.domain.PageRequest
 import org.springframework.data.domain.Sort
 import org.springframework.stereotype.Service
@@ -41,8 +43,13 @@ class OrderService(
     private val orderItemRepo: OrderItemRepository,
     private val productRepo: ProductRepository,
     private val orderMapper: OrderMapper,
+    private val messageSource: MessageSource,
 ) {
     private val log = LoggerFactory.getLogger(OrderService::class.java)
+
+    /** Helper — lấy i18n message từ MessageSource */
+    private fun msg(code: String, vararg args: Any): String =
+        messageSource.getMessage(code, args, LocaleContextHolder.getLocale())
 
     companion object {
         private const val MAX_SIZE = 100
@@ -58,12 +65,12 @@ class OrderService(
         // 1. Validate status
         val status = request.status.uppercase()
         if (status !in listOf(OrderStatus.DRAFT, OrderStatus.CONFIRMED)) {
-            throw BadRequestException("Status must be DRAFT or CONFIRMED")
+            throw BadRequestException(msg("order.status.invalid"))
         }
 
         // 2. Validate items
         if (request.items.isEmpty()) {
-            throw BadRequestException("At least one item is required")
+            throw BadRequestException(msg("order.items.empty"))
         }
         validateItems(request.items)
 
@@ -106,7 +113,7 @@ class OrderService(
             notes = request.notes?.trim(),
         )
         val saved = orderRepo.save(entity)
-        val savedId = saved.id!!
+        val savedId = requireNotNull(saved.id) { "Order ID must not be null after save" }
 
         // 7. Tạo items
         val itemEntities = itemData.map { data ->
@@ -124,7 +131,12 @@ class OrderService(
         // 8. Trừ kho nếu CONFIRMED
         if (status == OrderStatus.CONFIRMED) {
             itemData.forEach { data ->
-                productRepo.decrementStock(data.productId, data.quantity)
+                val rowsAffected = productRepo.decrementStock(data.productId, data.quantity)
+                if (rowsAffected == 0) {
+                    // Race: stock đã bị thay đổi giữa checkStockAvailability và decrement
+                    // → throw để rollback toàn bộ transaction
+                    throw BadRequestException(msg("order.stock-insufficient"))
+                }
             }
             log.info("Order {} confirmed: stock deducted for {} items", refNumber, itemData.size)
         }
@@ -153,17 +165,25 @@ class OrderService(
 
         val result = orderRepo.findByOwnerId(userId, status?.takeIf { it.isNotBlank() }, fromDate, toDate, pageable)
 
+        // Batch count items tránh N+1 query (1 query thay vì N queries)
+        val orderIds = result.content.mapNotNull { it.id }
+        val itemCountMap: Map<UUID, Int> = if (orderIds.isEmpty()) {
+            emptyMap()
+        } else {
+            orderItemRepo.countByOrderIds(orderIds)
+                .associate { row -> row[0] as UUID to (row[1] as Long).toInt() }
+        }
+
         val summaries = result.content.map { entity ->
-            val itemCount = orderItemRepo.countByOrderId(entity.id!!)
             OrderSummaryResponse(
-                id = entity.id!!,
+                id = requireNotNull(entity.id) { "Order ID must not be null" },
                 customerId = entity.customerId,
                 referenceNumber = entity.referenceNumber,
                 totalAmount = entity.totalAmount,
                 paidAmount = entity.paidAmount,
                 debtAmount = entity.debtAmount,
                 status = entity.status,
-                itemCount = itemCount,
+                itemCount = itemCountMap[entity.id] ?: 0,
                 createdAt = entity.createdAt,
                 updatedAt = entity.updatedAt,
             )
@@ -182,7 +202,7 @@ class OrderService(
      */
     fun getById(userId: UUID, orderId: UUID): OrderResponse {
         val entity = orderRepo.findByIdAndOwnerId(orderId, userId)
-            ?: throw ResourceNotFoundException("Order not found: $orderId")
+            ?: throw ResourceNotFoundException(msg("order.not-found"))
 
         val items = orderItemRepo.findByOrderIdOrderByCreatedAt(orderId)
         val itemResponses = items.map { orderMapper.toItemResponse(it) }
@@ -196,10 +216,10 @@ class OrderService(
      */
     fun cancel(userId: UUID, orderId: UUID, notes: String?): OrderResponse {
         val entity = orderRepo.findByIdAndOwnerId(orderId, userId)
-            ?: throw ResourceNotFoundException("Order not found: $orderId")
+            ?: throw ResourceNotFoundException(msg("order.not-found"))
 
         if (entity.status == OrderStatus.CANCELLED) {
-            throw BadRequestException("Order is already cancelled")
+            throw BadRequestException(msg("order.already-cancelled"))
         }
 
         val previousStatus = entity.status
@@ -211,7 +231,15 @@ class OrderService(
         if (previousStatus == OrderStatus.CONFIRMED) {
             val items = orderItemRepo.findByOrderIdOrderByCreatedAt(orderId)
             items.forEach { item ->
-                productRepo.incrementStock(item.productId, item.quantity)
+                val rowsAffected = productRepo.incrementStock(item.productId, item.quantity)
+                if (rowsAffected == 0) {
+                    // Product đã bị xóa/soft-delete trong lúc đơn CONFIRMED
+                    // → log warning, không fail cancellation
+                    log.warn(
+                        "Cannot restore stock for product {} when cancelling order {}: product not found",
+                        item.productId, entity.referenceNumber
+                    )
+                }
             }
             log.info("Order {} cancelled: stock restored for {} items", entity.referenceNumber, items.size)
         }
@@ -230,10 +258,10 @@ class OrderService(
     private fun validateItems(items: List<CreateOrderItemRequest>) {
         items.forEach { item ->
             if (item.quantity <= BigDecimal.ZERO) {
-                throw BadRequestException("Quantity must be positive")
+                throw BadRequestException(msg("order.items.quantity-positive"))
             }
             if (item.unitPrice <= BigDecimal.ZERO) {
-                throw BadRequestException("Unit price must be positive")
+                throw BadRequestException(msg("order.items.price-positive"))
             }
         }
     }
@@ -242,12 +270,9 @@ class OrderService(
     private fun checkStockAvailability(items: List<ProductItemData>) {
         items.forEach { data ->
             val product = productRepo.findById(data.productId)
-                .orElseThrow { ResourceNotFoundException("Product not found: ${data.productId}") }
+                .orElseThrow { ResourceNotFoundException(msg("product.not-found")) }
             if (product.stock < data.quantity) {
-                throw BadRequestException(
-                    "Insufficient stock for '${data.productName}': " +
-                        "requested ${data.quantity}, available ${product.stock}"
-                )
+                throw BadRequestException(msg("order.stock-insufficient"))
             }
         }
     }

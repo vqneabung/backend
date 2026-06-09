@@ -29,7 +29,9 @@ class UserSeedService(
             return
         }
 
-        val defaultPassword = passwordEncoder.encode("123456")!!
+        val defaultPassword = requireNotNull(passwordEncoder.encode("123456")) {
+            "BCryptPasswordEncoder.encode() must not return null"
+        }
 
         userRepository.save(UserEntity(
             email = "owner@bizflow.vn",

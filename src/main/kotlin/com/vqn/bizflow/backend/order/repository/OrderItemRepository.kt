@@ -19,6 +19,13 @@ interface OrderItemRepository : JpaRepository<OrderItemEntity, UUID> {
     /** Đếm số items — dùng cho summary */
     fun countByOrderId(orderId: UUID): Int
 
+    /**
+     * Batch đếm items cho nhiều orders — tránh N+1 query khi build summary list.
+     * Returns: List<[orderId, count]>
+     */
+    @Query("SELECT oi.orderId, COUNT(oi) FROM OrderItemEntity oi WHERE oi.orderId IN :orderIds GROUP BY oi.orderId")
+    fun countByOrderIds(@Param("orderIds") orderIds: List<UUID>): List<Array<Any>>
+
     // ═══════════════════════════════════════════════
     // Report queries
     // ═══════════════════════════════════════════════

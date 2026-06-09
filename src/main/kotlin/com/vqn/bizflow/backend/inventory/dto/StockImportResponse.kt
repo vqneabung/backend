@@ -48,7 +48,7 @@ data class StockImportSummaryResponse(
 ) {
     companion object {
         fun from(entity: StockImportEntity, itemCount: Int) = StockImportSummaryResponse(
-            id = entity.id!!,
+            id = requireNotNull(entity.id) { "StockImport ID must not be null" },
             referenceNumber = entity.referenceNumber,
             supplier = entity.supplier,
             importDate = entity.importDate,

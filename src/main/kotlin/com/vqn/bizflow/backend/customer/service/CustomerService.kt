@@ -11,7 +11,12 @@ import com.vqn.bizflow.backend.dto.PaginationResponse
 import com.vqn.bizflow.backend.exception.BadRequestException
 import com.vqn.bizflow.backend.exception.DuplicateException
 import com.vqn.bizflow.backend.exception.ResourceNotFoundException
+import com.vqn.bizflow.backend.order.dto.OrderSummaryResponse
+import com.vqn.bizflow.backend.order.repository.OrderItemRepository
+import com.vqn.bizflow.backend.order.repository.OrderRepository
 import org.slf4j.LoggerFactory
+import org.springframework.context.MessageSource
+import org.springframework.context.i18n.LocaleContextHolder
 import org.springframework.data.domain.Page
 import org.springframework.data.domain.PageRequest
 import org.springframework.data.domain.Sort
@@ -31,8 +36,15 @@ import java.util.UUID
 class CustomerService(
     private val customerRepo: CustomerRepository,
     private val customerMapper: CustomerMapper,
+    private val orderRepo: OrderRepository,
+    private val orderItemRepo: OrderItemRepository,
+    private val messageSource: MessageSource,
 ) {
     private val log = LoggerFactory.getLogger(CustomerService::class.java)
+
+    /** Helper — lấy i18n message từ MessageSource */
+    private fun msg(code: String, vararg args: Any): String =
+        messageSource.getMessage(code, args, LocaleContextHolder.getLocale())
 
     companion object {
         private const val DEFAULT_PAGE = 1
@@ -48,7 +60,7 @@ class CustomerService(
 
         // Check trùng tên (cùng owner)
         if (customerRepo.existsByNameAndOwnerId(trimmedName, userId)) {
-            throw DuplicateException("Customer with this name already exists")
+            throw DuplicateException(msg("customer.duplicate.name"))
         }
 
         val entity = request.toEntity(userId)
@@ -69,13 +81,13 @@ class CustomerService(
         if (request.name == null && request.phone == null && request.email == null &&
             request.address == null && request.notes == null
         ) {
-            throw BadRequestException("At least one field must be provided")
+            throw BadRequestException(msg("customer.update.empty"))
         }
 
         request.name?.trim()?.let { newName ->
             if (newName != customer.name) {
                 if (customerRepo.existsByNameAndOwnerId(newName, userId)) {
-                    throw DuplicateException("Customer with this name already exists")
+                    throw DuplicateException(msg("customer.duplicate.name"))
                 }
                 customer.name = newName
             }
@@ -137,6 +149,58 @@ class CustomerService(
         log.info("Deactivated customer '{}' (id={})", customer.name, customer.id)
     }
 
+    /**
+     * Lịch sử mua hàng của 1 khách hàng (phân trang, mới nhất trước).
+     * Dùng cho FR-17 (Customer Purchase History).
+     */
+    @Transactional(readOnly = true)
+    fun getOrders(
+        userId: UUID,
+        customerId: UUID,
+        page: Int?,
+        size: Int?,
+    ): PaginationResponse<OrderSummaryResponse> {
+        // Verify customer tồn tại và thuộc owner
+        findActiveCustomer(userId, customerId)
+
+        val effectivePage = (page ?: DEFAULT_PAGE).coerceAtLeast(1)
+        val effectiveSize = (size ?: DEFAULT_SIZE).coerceIn(1, MAX_SIZE)
+        val pageable = PageRequest.of(effectivePage - 1, effectiveSize, Sort.by(Sort.Direction.DESC, "createdAt"))
+
+        val result = orderRepo.findByOwnerIdAndCustomerId(userId, customerId, pageable)
+
+        // Batch count items tránh N+1 query (1 query thay vì N queries)
+        val orderIds = result.content.mapNotNull { it.id }
+        val itemCountMap: Map<UUID, Int> = if (orderIds.isEmpty()) {
+            emptyMap()
+        } else {
+            orderItemRepo.countByOrderIds(orderIds)
+                .associate { row -> row[0] as UUID to (row[1] as Long).toInt() }
+        }
+
+        val summaries = result.content.map { order ->
+            OrderSummaryResponse(
+                id = requireNotNull(order.id) { "Order ID must not be null" },
+                customerId = order.customerId,
+                referenceNumber = order.referenceNumber,
+                totalAmount = order.totalAmount,
+                paidAmount = order.paidAmount,
+                debtAmount = order.debtAmount,
+                status = order.status,
+                itemCount = itemCountMap[order.id] ?: 0,
+                createdAt = order.createdAt,
+                updatedAt = order.updatedAt,
+            )
+        }
+
+        return PaginationResponse.of(
+            data = summaries,
+            page = effectivePage,
+            size = effectiveSize,
+            totalElements = result.totalElements,
+        )
+    }
+
     // ===== Internal helpers =====
 
     /** Tìm active customer của specific owner (hoặc throw). */
@@ -145,7 +209,7 @@ class CustomerService(
             .orElseThrow { ResourceNotFoundException("Customer not found: $customerId") }
 
         if (customer.ownerId != userId) {
-            throw ResourceNotFoundException("Customer not found: $customerId")
+            throw ResourceNotFoundException(msg("customer.not-found"))
         }
 
         return customer

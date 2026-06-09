@@ -37,7 +37,7 @@ class AuthService(
             ResponseStatusException(HttpStatus.NOT_FOUND, "User not found")
         }
         return UserResponse(
-            id = user.id!!,
+            id = requireNotNull(user.id) { "User ID must not be null after DB load" },
             email = user.email,
             name = user.name,
             role = user.role.name,
@@ -58,7 +58,9 @@ class AuthService(
             )
         }
 
-        val hashedPassword = passwordEncoder.encode(request.password)!!
+        val hashedPassword = requireNotNull(passwordEncoder.encode(request.password)) {
+            "BCryptPasswordEncoder.encode() must not return null"
+        }
         val user = UserEntity(
             email = request.email,
             password = hashedPassword,
@@ -69,7 +71,7 @@ class AuthService(
         val savedUser = userRepository.save(user)
 
         val token = jwtService.generateToken(
-            userId = savedUser.id!!,
+            userId = requireNotNull(savedUser.id) { "User ID must not be null after save" },
             email = savedUser.email,
             role = savedUser.role.name
         )
@@ -93,7 +95,7 @@ class AuthService(
         }
 
         val token = jwtService.generateToken(
-            userId = user.id!!,
+            userId = requireNotNull(user.id) { "User ID must not be null after DB load" },
             email = user.email,
             role = user.role.name
         )

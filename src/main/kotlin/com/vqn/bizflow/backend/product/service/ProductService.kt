@@ -20,6 +20,8 @@ import com.vqn.bizflow.backend.product.repository.ProductRepository
 import com.vqn.bizflow.backend.product.repository.ProductUnitRepository
 import com.vqn.bizflow.backend.product.repository.UnitRepository
 import org.slf4j.LoggerFactory
+import org.springframework.context.MessageSource
+import org.springframework.context.i18n.LocaleContextHolder
 import org.springframework.data.domain.Page
 import org.springframework.data.domain.PageRequest
 import org.springframework.data.domain.Sort
@@ -51,6 +53,7 @@ class ProductService(
     private val productMapper: ProductMapper,
     private val categoryRepo: CategoryRepository,
     private val unitRepo: UnitRepository,
+    private val messageSource: MessageSource,
 ) {
     companion object {
         private const val MAX_PAGE_SIZE = 100
@@ -58,6 +61,10 @@ class ProductService(
     }
 
     private val log = LoggerFactory.getLogger(ProductService::class.java)
+
+    /** Helper — lấy i18n message từ MessageSource */
+    private fun msg(code: String, vararg args: Any): String =
+        messageSource.getMessage(code, args, LocaleContextHolder.getLocale())
 
     // ===== CRUD =====
 
@@ -70,13 +77,13 @@ class ProductService(
 
         // UC-03: Trùng tên (cùng owner)
         if (productRepo.existsByNameAndOwnerId(trimmedName, userId)) {
-            throw DuplicateException("Product with this name already exists")
+            throw DuplicateException(msg("product.duplicate.name"))
         }
 
         // UC-15: Trùng barcode
         if (!request.barcode.isNullOrBlank()) {
             if (productRepo.existsByBarcode(request.barcode.trim())) {
-                throw DuplicateException("Barcode already exists")
+                throw DuplicateException(msg("product.duplicate.barcode"))
             }
         }
 
@@ -122,14 +129,14 @@ class ProductService(
             request.minStock == null && request.imageUrl == null && request.imageKeys == null &&
             request.barcode == null
         ) {
-            throw BadRequestException("At least one field must be provided")
+            throw BadRequestException(msg("product.update.empty"))
         }
 
         // UC-19/20: Check duplicate name nếu đổi tên
         request.name?.trim()?.let { newName ->
             if (newName != product.name) {
                 if (productRepo.existsByNameAndOwnerId(newName, userId)) {
-                    throw DuplicateException("Product with this name already exists")
+                    throw DuplicateException(msg("product.duplicate.name"))
                 }
                 product.name = newName
             }
@@ -155,7 +162,7 @@ class ProductService(
         request.barcode?.trim()?.let {
             if (it != product.barcode) {
                 if (productRepo.existsByBarcode(it)) {
-                    throw DuplicateException("Barcode already exists")
+                    throw DuplicateException(msg("product.duplicate.barcode"))
                 }
             }
             product.barcode = it
@@ -181,12 +188,15 @@ class ProductService(
     }
 
     /**
-     * Lấy chi tiết sản phẩm.
+     * Lấy chi tiết sản phẩm (có kiểm tra ownerId — multi-tenant).
      */
     @Transactional(readOnly = true)
-    fun getById(productId: UUID): ProductResponse {
+    fun getById(userId: UUID, productId: UUID): ProductResponse {
         val product = productRepo.findById(productId)
             .orElseThrow { ResourceNotFoundException("Product not found") }
+        if (product.ownerId != userId) {
+            throw ResourceNotFoundException(msg("product.not-found"))
+        }
         return productMapper.toResponse(product)
     }
 
@@ -223,7 +233,8 @@ class ProductService(
 
         return PaginationResponse.of(
             data = result.content.map { productMapper.toResponse(it) },
-            page = result.number,
+            // result.number là 0-based (Spring Data) — convert về 1-based cho API
+            page = result.number + 1,
             size = result.size,
             totalElements = result.totalElements,
         )
@@ -234,13 +245,13 @@ class ProductService(
     /** Thêm đơn vị tính phụ cho sản phẩm. */
     fun addUnit(productId: UUID, unitId: UUID, price: BigDecimal, conversionRate: BigDecimal?): ProductUnitEntity {
         if (!productRepo.existsById(productId)) {
-            throw ResourceNotFoundException("Product not found")
+            throw ResourceNotFoundException(msg("product.not-found"))
         }
         if (productUnitRepo.existsByProductIdAndUnitId(productId, unitId)) {
-            throw DuplicateException("Unit already exists for this product")
+            throw DuplicateException(msg("product.unit.duplicate"))
         }
         if (conversionRate != null && conversionRate <= BigDecimal.ZERO) {
-            throw BadRequestException("Conversion rate must be greater than 0")
+            throw BadRequestException(msg("product.unit.invalid-conversion"))
         }
         return productUnitRepo.save(
             ProductUnitEntity(productId = productId, unitId = unitId, price = price, conversionRate = conversionRate)
@@ -252,10 +263,10 @@ class ProductService(
         val unit = productUnitRepo.findById(unitId)
             .orElseThrow { ResourceNotFoundException("Unit not found") }
         if (unit.productId != productId) {
-            throw BadRequestException("Unit does not belong to this product")
+            throw BadRequestException(msg("product.unit.not-belong"))
         }
         if (productUnitRepo.countByProductId(productId) <= 1) {
-            throw BadRequestException("Product must have at least one unit")
+            throw BadRequestException(msg("product.unit.min-one"))
         }
         productUnitRepo.delete(unit)
     }
@@ -283,8 +294,9 @@ class ProductService(
      * đọc được imageKeys mà không cần extra SELECT.
      */
     private fun persistImages(product: ProductEntity, objectKeys: List<String>, uploadedBy: UUID) {
+        val productId = requireNotNull(product.id) { "Product ID must not be null when persisting images" }
         // Delete existing + insert new (max MAX_IMAGES)
-        productImageRepo.deleteByProductId(product.id!!)
+        productImageRepo.deleteByProductId(productId)
         val keys = objectKeys.take(ProductEntity.MAX_IMAGES)
         keys.forEachIndexed { idx, key ->
             productImageRepo.save(
@@ -299,14 +311,14 @@ class ProductService(
 
         // Sync entity.images cho mapper
         product.images.clear()
-        productImageRepo.findImagesByProductId(product.id!!).forEach { product.images.add(it) }
+        productImageRepo.findImagesByProductId(productId).forEach { product.images.add(it) }
     }
 
     private fun validatePositive(value: BigDecimal, field: String) {
-        if (value <= BigDecimal.ZERO) throw BadRequestException("$field must be greater than 0")
+        if (value <= BigDecimal.ZERO) throw BadRequestException(msg("product.validation.positive", field))
     }
 
     private fun validateNonNegative(value: BigDecimal, field: String) {
-        if (value < BigDecimal.ZERO) throw BadRequestException("$field cannot be negative")
+        if (value < BigDecimal.ZERO) throw BadRequestException(msg("product.validation.non-negative", field))
     }
 }

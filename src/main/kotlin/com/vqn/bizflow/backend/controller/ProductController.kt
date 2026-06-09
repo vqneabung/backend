@@ -77,9 +77,10 @@ class ProductController(
     @Operation(summary = "Chi tiết sản phẩm")
     @GetMapping("/{id}")
     fun getById(
+        auth: Authentication,
         @PathVariable id: UUID,
     ): ResponseEntity<ApiResponse<ProductResponse>> {
-        val result = productService.getById(id)
+        val result = productService.getById(SecurityUtils.getUserId(auth), id)
         return ResponseEntity.ok(ApiResponse.success(result))
     }
 

@@ -6,6 +6,7 @@ import com.vqn.bizflow.backend.customer.dto.UpdateCustomerRequest
 import com.vqn.bizflow.backend.customer.service.CustomerService
 import com.vqn.bizflow.backend.dto.ApiResponse
 import com.vqn.bizflow.backend.dto.PaginationResponse
+import com.vqn.bizflow.backend.order.dto.OrderSummaryResponse
 import com.vqn.bizflow.backend.util.SecurityUtils
 import io.swagger.v3.oas.annotations.Operation
 import io.swagger.v3.oas.annotations.responses.ApiResponse as SwaggerApiResponse
@@ -108,5 +109,20 @@ class CustomerController(
     ): ResponseEntity<ApiResponse<Unit>> {
         customerService.deactivate(SecurityUtils.getUserId(auth), id)
         return ResponseEntity.ok(ApiResponse.ok("Customer deactivated"))
+    }
+
+    @Operation(
+        summary = "Lịch sử mua hàng",
+        description = "Danh sách đơn hàng của 1 khách hàng, phân trang, mới nhất trước.",
+    )
+    @GetMapping("/{id}/orders")
+    fun getOrders(
+        auth: Authentication,
+        @PathVariable id: UUID,
+        @RequestParam(defaultValue = "1") page: Int,
+        @RequestParam(defaultValue = "20") size: Int,
+    ): ResponseEntity<PaginationResponse<OrderSummaryResponse>> {
+        val result = customerService.getOrders(SecurityUtils.getUserId(auth), id, page, size)
+        return ResponseEntity.ok(result)
     }
 }

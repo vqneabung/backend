@@ -147,7 +147,7 @@ class ReportService(
             .filter { it.stock <= it.minStock }
             .map { entity ->
                 LowStockProduct(
-                    productId = entity.id!!,
+                    productId = requireNotNull(entity.id) { "Product ID must not be null" },
                     productName = entity.name,
                     stock = entity.stock,
                     minStock = entity.minStock,
@@ -185,7 +185,7 @@ class ReportService(
         // Group by customerId
         val debtByCustomer: Map<UUID?, List<Pair<UUID, BigDecimal>>> = ordersWithDebt.groupBy(
             keySelector = { it.customerId },
-            valueTransform = { Pair(it.id!!, it.debtAmount) },
+            valueTransform = { Pair(requireNotNull(it.id) { "Order ID must not be null" }, it.debtAmount) },
         ).mapValues { (_, orders) -> orders }
 
         // Fetch customer names
@@ -193,7 +193,7 @@ class ReportService(
         val customerNames: Map<UUID, String> = if (customerIds.isEmpty()) {
             emptyMap()
         } else {
-            customerRepo.findAllById(customerIds).associate { it.id!! to it.name }
+            customerRepo.findAllById(customerIds).associate { requireNotNull(it.id) { "Customer ID must not be null" } to it.name }
         }
 
         val customers = debtByCustomer.entries.map { (cId, orders) ->

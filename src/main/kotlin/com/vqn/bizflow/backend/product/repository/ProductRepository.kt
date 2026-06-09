@@ -50,21 +50,28 @@ interface ProductRepository : JpaRepository<ProductEntity, UUID> {
         ownerId: UUID, threshold: BigDecimal,
     ): List<ProductEntity>
 
-    /** Atomic increment stock — dùng cho stock import / hoàn kho khi hủy đơn */
+    /**
+     * Atomic increment stock — dùng cho stock import / hoàn kho khi hủy đơn.
+     * Returns: số rows affected (0 = product không tồn tại).
+     */
     @Modifying
     @Query("UPDATE ProductEntity p SET p.stock = p.stock + :quantity WHERE p.id = :productId")
     fun incrementStock(
         @Param("productId") productId: UUID,
         @Param("quantity") quantity: BigDecimal,
-    )
+    ): Int
 
-    /** Atomic decrement stock — dùng cho order confirm (trừ kho) */
+    /**
+     * Atomic decrement stock — dùng cho order confirm (trừ kho).
+     * Returns: số rows affected (0 = stock không đủ hoặc product không tồn tại).
+     * Guard `p.stock >= :quantity` ngăn race condition giữa check và write.
+     */
     @Modifying
     @Query("UPDATE ProductEntity p SET p.stock = p.stock - :quantity WHERE p.id = :productId AND p.stock >= :quantity")
     fun decrementStock(
         @Param("productId") productId: UUID,
         @Param("quantity") quantity: BigDecimal,
-    )
+    ): Int
 
     // ═══════════════════════════════════════════════
     // Report queries
