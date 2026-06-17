@@ -6,6 +6,14 @@ import java.util.UUID
 
 /**
  * Response chi tiết đơn hàng (kèm danh sách items).
+ *
+ * `items` và `itemCount` có default value để tránh NPE khi MapStruct
+ * generate code pass null cho 2 field này (do @Mapping ignore = true
+ * trong OrderMapper.toResponse). Kotlin compiler KHÔNG add null check
+ * cho params có default, nên constructor từ Java vẫn pass được null.
+ *
+ * Caller nên dùng OrderMapper.toDetailResponse(entity, items) thay vì
+ * toResponse(entity) trực tiếp để có data đầy đủ.
  */
 data class OrderResponse(
     val id: UUID,
@@ -17,8 +25,8 @@ data class OrderResponse(
     val debtAmount: BigDecimal,
     val status: String,
     val notes: String?,
-    val itemCount: Int,
-    val items: List<OrderItemResponse>,
+    val itemCount: Int = 0,
+    val items: List<OrderItemResponse> = emptyList(),
     val createdAt: Instant,
     val updatedAt: Instant?,
 )

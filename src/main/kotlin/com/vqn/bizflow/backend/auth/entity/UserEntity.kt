@@ -5,6 +5,7 @@ import jakarta.persistence.Entity
 import jakarta.persistence.EnumType
 import jakarta.persistence.Enumerated
 import jakarta.persistence.Table
+import org.hibernate.annotations.SQLRestriction
 
 /**
  * User — người dùng của hệ thống.
@@ -16,6 +17,7 @@ import jakarta.persistence.Table
  */
 @Entity
 @Table(name = "users")
+@SQLRestriction("is_active = 1")
 class UserEntity(
     @Column(nullable = false, unique = true)
     val email: String,
@@ -31,4 +33,8 @@ class UserEntity(
     // Nullable: không bắt buộc khi register (có thể cập nhật sau)
     @Column(nullable = true)
     val name: String? = null,
+
+    // Soft delete flag — false = user bị vô hiệu hóa
+    @Column(name = "is_active", nullable = false)
+    var isActive: Boolean = true,
 ) : BaseEntity()
