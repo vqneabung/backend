@@ -4,6 +4,7 @@ import com.vqn.bizflow.backend.auth.dto.AuthResponse
 import com.vqn.bizflow.backend.auth.dto.LoginRequest
 import com.vqn.bizflow.backend.auth.dto.RegisterRequest
 import com.vqn.bizflow.backend.auth.dto.UserResponse
+import com.vqn.bizflow.backend.auth.dto.UserUpdateRequest
 import com.vqn.bizflow.backend.auth.service.AuthService
 import com.vqn.bizflow.backend.dto.ApiResponse
 import io.swagger.v3.oas.annotations.Operation
@@ -16,6 +17,7 @@ import org.springframework.http.ResponseEntity
 import org.springframework.security.access.prepost.PreAuthorize
 import org.springframework.security.core.Authentication
 import org.springframework.web.bind.annotation.GetMapping
+import org.springframework.web.bind.annotation.PatchMapping
 import org.springframework.web.bind.annotation.PostMapping
 import org.springframework.web.bind.annotation.RequestBody
 import org.springframework.web.bind.annotation.RequestMapping
@@ -68,5 +70,20 @@ class AuthController(
         val userId = SecurityUtils.getUserId(auth)
         val response = authService.me(userId)
         return ResponseEntity.ok(ApiResponse.success(data = response))
+    }
+
+    @Operation(
+        summary = "Cập nhật thông tin cá nhân",
+        description = "Cập nhật thông tin user hiện tại (name).",
+    )
+    @PatchMapping("/me")
+    @PreAuthorize("isAuthenticated()")
+    fun patchMe(
+        auth: Authentication,
+        @Valid @RequestBody request: UserUpdateRequest,
+    ): ResponseEntity<ApiResponse<UserResponse>> {
+        val userId = SecurityUtils.getUserId(auth)
+        val response = authService.updateProfile(userId, request)
+        return ResponseEntity.ok(ApiResponse.success(data = response, message = "Cập nhật thành công"))
     }
 }

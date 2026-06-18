@@ -26,4 +26,7 @@ data class UserResponse(
 
     @field:Schema(description = "Ngày tham gia (ISO-8601)", example = "2026-01-15T10:30:00Z")
     val joinedAt: Instant,
+
+    @field:Schema(description = "Thời gian xác thực email (null = chưa xác thực)", example = "2026-06-15T10:30:00Z")
+    val emailVerifiedAt: Instant?,
 )

@@ -40,6 +40,7 @@ class AdminUserService(
         name = user.name,
         role = user.role.name,
         joinedAt = user.createdAt,
+        emailVerifiedAt = user.emailVerifiedAt,
     )
 
     @Transactional(readOnly = true)

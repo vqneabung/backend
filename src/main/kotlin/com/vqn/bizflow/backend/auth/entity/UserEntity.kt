@@ -1,5 +1,6 @@
 package com.vqn.bizflow.backend.auth.entity
 import com.vqn.bizflow.backend.entity.BaseEntity
+import java.time.Instant
 import jakarta.persistence.Column
 import jakarta.persistence.Entity
 import jakarta.persistence.EnumType
@@ -32,7 +33,11 @@ class UserEntity(
     // Tên hiển thị của user — dùng cho OIDC "profile" scope
     // Nullable: không bắt buộc khi register (có thể cập nhật sau)
     @Column(nullable = true)
-    val name: String? = null,
+    var name: String? = null,
+
+    // Thời điểm user xác thực email — null = chưa xác thực
+    @Column(name = "email_verified_at", nullable = true)
+    var emailVerifiedAt: Instant? = null,
 
     // Soft delete flag — false = user bị vô hiệu hóa
     @Column(name = "is_active", nullable = false)

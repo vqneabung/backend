@@ -4,6 +4,7 @@ import com.vqn.bizflow.backend.auth.dto.AuthResponse
 import com.vqn.bizflow.backend.auth.dto.LoginRequest
 import com.vqn.bizflow.backend.auth.dto.RegisterRequest
 import com.vqn.bizflow.backend.auth.dto.UserResponse
+import com.vqn.bizflow.backend.auth.dto.UserUpdateRequest
 import org.springframework.http.HttpStatus
 import org.springframework.web.server.ResponseStatusException
 import java.util.UUID
@@ -42,6 +43,7 @@ class AuthService(
             name = user.name,
             role = user.role.name,
             joinedAt = user.createdAt,
+            emailVerifiedAt = user.emailVerifiedAt,
         )
     }
 
@@ -107,6 +109,25 @@ class AuthService(
             name = user.name,
             id = user.id,
             joinedAt = user.createdAt,
+        )
+    }
+
+    fun updateProfile(userId: UUID, request: UserUpdateRequest): UserResponse {
+        val user = userRepository.findById(userId).orElseThrow {
+            ResponseStatusException(HttpStatus.NOT_FOUND, "User not found")
+        }
+
+        request.name?.let { user.name = it }
+
+        val savedUser = userRepository.save(user)
+
+        return UserResponse(
+            id = requireNotNull(savedUser.id) { "User ID must not be null after save" },
+            email = savedUser.email,
+            name = savedUser.name,
+            role = savedUser.role.name,
+            joinedAt = savedUser.createdAt,
+            emailVerifiedAt = savedUser.emailVerifiedAt,
         )
     }
 
