@@ -1,5 +1,6 @@
 package com.vqn.bizflow.backend.product.service
 
+import com.vqn.bizflow.backend.audit.service.AuditService
 import com.vqn.bizflow.backend.dto.PaginationResponse
 import com.vqn.bizflow.backend.exception.BadRequestException
 import com.vqn.bizflow.backend.exception.ConflictException
@@ -54,6 +55,7 @@ class ProductService(
     private val categoryRepo: CategoryRepository,
     private val unitRepo: UnitRepository,
     private val messageSource: MessageSource,
+    private val auditService: AuditService,
 ) {
     companion object {
         private const val MAX_PAGE_SIZE = 100
@@ -113,6 +115,16 @@ class ProductService(
                 saved.stock, saved.minStock, saved.name)
         }
 
+        log.info("Product '{}' created (id={}) for owner={}", saved.name, saved.id, userId)
+        auditService.log(
+            ownerId = userId,
+            actorId = userId,
+            action = "CREATE",
+            entityType = "Product",
+            entityId = requireNotNull(saved.id) { "Product ID must not be null after save" },
+            snapshot = "{\"name\": \"${saved.name.replace("\"", "\\\"")}\"}",
+        )
+
         return productMapper.toResponse(saved)
     }
 
@@ -171,6 +183,16 @@ class ProductService(
 
         // OptimisticLockException được global handler bắt → 409 tự động
         val saved = productRepo.save(product)
+
+        auditService.log(
+            ownerId = userId,
+            actorId = userId,
+            action = "UPDATE",
+            entityType = "Product",
+            entityId = requireNotNull(saved.id) { "Product ID must not be null after save" },
+            snapshot = "{\"name\": \"${saved.name.replace("\"", "\\\"")}\"}",
+        )
+
         return productMapper.toResponse(saved)
     }
 
@@ -184,7 +206,16 @@ class ProductService(
         }
         product.isActive = false
         product.updatedAt = Instant.now()
-        productRepo.save(product)
+        val saved = productRepo.save(product)
+
+        auditService.log(
+            ownerId = userId,
+            actorId = userId,
+            action = "DEACTIVATE",
+            entityType = "Product",
+            entityId = requireNotNull(saved.id) { "Product ID must not be null after save" },
+            snapshot = "{\"name\": \"${saved.name.replace("\"", "\\\"")}\"}",
+        )
     }
 
     /**
@@ -243,7 +274,7 @@ class ProductService(
     // ===== Đơn vị tính phụ (ProductUnit) =====
 
     /** Thêm đơn vị tính phụ cho sản phẩm. */
-    fun addUnit(productId: UUID, unitId: UUID, price: BigDecimal, conversionRate: BigDecimal?): ProductUnitEntity {
+    fun addUnit(userId: UUID, productId: UUID, unitId: UUID, price: BigDecimal, conversionRate: BigDecimal?): ProductUnitEntity {
         if (!productRepo.existsById(productId)) {
             throw ResourceNotFoundException(msg("product.not-found"))
         }
@@ -255,11 +286,20 @@ class ProductService(
         }
         return productUnitRepo.save(
             ProductUnitEntity(productId = productId, unitId = unitId, price = price, conversionRate = conversionRate)
-        )
+        ).also {
+            auditService.log(
+                ownerId = userId,
+                actorId = userId,
+                action = "UPDATE",
+                entityType = "Product",
+                entityId = productId,
+                snapshot = "{\"unitId\": \"$unitId\", \"action\": \"addUnit\"}",
+            )
+        }
     }
 
     /** Xóa đơn vị tính phụ (không xóa được unit cuối cùng). */
-    fun removeUnit(productId: UUID, unitId: UUID) {
+    fun removeUnit(userId: UUID, productId: UUID, unitId: UUID) {
         val unit = productUnitRepo.findById(unitId)
             .orElseThrow { ResourceNotFoundException("Unit not found") }
         if (unit.productId != productId) {
@@ -269,9 +309,15 @@ class ProductService(
             throw BadRequestException(msg("product.unit.min-one"))
         }
         productUnitRepo.delete(unit)
+        auditService.log(
+            ownerId = userId,
+            actorId = userId,
+            action = "UPDATE",
+            entityType = "Product",
+            entityId = productId,
+            snapshot = "{\"unitId\": \"$unitId\", \"action\": \"removeUnit\"}",
+        )
     }
-
-    // ===== Helpers =====
 
     private fun findActiveProduct(userId: UUID, productId: UUID): ProductEntity {
         val product = productRepo.findById(productId)

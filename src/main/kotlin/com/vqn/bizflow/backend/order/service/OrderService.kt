@@ -1,5 +1,6 @@
 package com.vqn.bizflow.backend.order.service
 
+import com.vqn.bizflow.backend.audit.service.AuditService
 import com.vqn.bizflow.backend.dto.PaginationResponse
 import com.vqn.bizflow.backend.exception.BadRequestException
 import com.vqn.bizflow.backend.exception.ResourceNotFoundException
@@ -44,6 +45,7 @@ class OrderService(
     private val productRepo: ProductRepository,
     private val orderMapper: OrderMapper,
     private val messageSource: MessageSource,
+    private val auditService: AuditService,
 ) {
     private val log = LoggerFactory.getLogger(OrderService::class.java)
 
@@ -143,6 +145,15 @@ class OrderService(
 
         log.info("Order {} created: {} items, total={}, status={}", refNumber, itemData.size, totalAmount, status)
 
+        auditService.log(
+            ownerId = userId,
+            actorId = userId,
+            action = "CREATE",
+            entityType = "Order",
+            entityId = savedId,
+            snapshot = "{\"referenceNumber\": \"$refNumber\", \"status\": \"$status\"}",
+        )
+
         // 9. Build response
         val itemResponses = savedItems.map { orderMapper.toItemResponse(it) }
         return orderMapper.toDetailResponse(saved, itemResponses)
@@ -218,6 +229,8 @@ class OrderService(
         val entity = orderRepo.findByIdAndOwnerId(orderId, userId)
             ?: throw ResourceNotFoundException(msg("order.not-found"))
 
+        val cancelledOrderId = requireNotNull(entity.id) { "Order ID must not be null" }
+
         if (entity.status == OrderStatus.CANCELLED) {
             throw BadRequestException(msg("order.already-cancelled"))
         }
@@ -245,6 +258,15 @@ class OrderService(
         }
 
         val saved = orderRepo.save(entity)
+
+        auditService.log(
+            ownerId = userId,
+            actorId = userId,
+            action = "CANCEL",
+            entityType = "Order",
+            entityId = cancelledOrderId,
+            snapshot = "{\"referenceNumber\": \"${entity.referenceNumber}\", \"previousStatus\": \"$previousStatus\"}",
+        )
 
         // Build response with items
         val items = orderItemRepo.findByOrderIdOrderByCreatedAt(orderId)

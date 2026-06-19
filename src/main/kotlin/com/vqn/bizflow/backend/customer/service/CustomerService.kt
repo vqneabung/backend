@@ -1,5 +1,6 @@
 package com.vqn.bizflow.backend.customer.service
 
+import com.vqn.bizflow.backend.audit.service.AuditService
 import com.vqn.bizflow.backend.customer.dto.CreateCustomerRequest
 import com.vqn.bizflow.backend.customer.dto.CustomerResponse
 import com.vqn.bizflow.backend.customer.dto.UpdateCustomerRequest
@@ -39,6 +40,7 @@ class CustomerService(
     private val orderRepo: OrderRepository,
     private val orderItemRepo: OrderItemRepository,
     private val messageSource: MessageSource,
+    private val auditService: AuditService,
 ) {
     private val log = LoggerFactory.getLogger(CustomerService::class.java)
 
@@ -67,6 +69,14 @@ class CustomerService(
         val saved = customerRepo.save(entity)
 
         log.info("Created customer '{}' (id={}) for owner={}", saved.name, saved.id, userId)
+        auditService.log(
+            ownerId = userId,
+            actorId = userId,
+            action = "CREATE",
+            entityType = "Customer",
+            entityId = requireNotNull(saved.id) { "Customer ID must not be null after save" },
+            snapshot = "{\"name\": \"${saved.name.replace("\"", "\\\"")}\"}",
+        )
         return customerMapper.toResponse(saved)
     }
 
@@ -99,6 +109,14 @@ class CustomerService(
 
         val saved = customerRepo.save(customer)
         log.info("Updated customer '{}' (id={})", saved.name, saved.id)
+        auditService.log(
+            ownerId = userId,
+            actorId = userId,
+            action = "UPDATE",
+            entityType = "Customer",
+            entityId = requireNotNull(saved.id) { "Customer ID must not be null after save" },
+            snapshot = "{\"name\": \"${saved.name.replace("\"", "\\\"")}\"}",
+        )
         return customerMapper.toResponse(saved)
     }
 
@@ -147,6 +165,14 @@ class CustomerService(
         customer.isActive = false
         customerRepo.save(customer)
         log.info("Deactivated customer '{}' (id={})", customer.name, customer.id)
+        auditService.log(
+            ownerId = userId,
+            actorId = userId,
+            action = "DEACTIVATE",
+            entityType = "Customer",
+            entityId = requireNotNull(customer.id) { "Customer ID must not be null" },
+            snapshot = "{\"name\": \"${customer.name.replace("\"", "\\\"")}\"}",
+        )
     }
 
     /**

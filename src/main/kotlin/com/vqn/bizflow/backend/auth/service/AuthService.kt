@@ -1,5 +1,6 @@
 package com.vqn.bizflow.backend.auth.service
 
+import com.vqn.bizflow.backend.audit.service.AuditService
 import com.vqn.bizflow.backend.auth.dto.AuthResponse
 import com.vqn.bizflow.backend.auth.dto.LoginRequest
 import com.vqn.bizflow.backend.auth.dto.RegisterRequest
@@ -30,7 +31,8 @@ class AuthService(
     private val userRepository: UserRepository,
     private val passwordEncoder: PasswordEncoder,
     private val jwtService: JwtService,
-    private val messageSource: MessageSource
+    private val messageSource: MessageSource,
+    private val auditService: AuditService,
 ) {
     /** Lấy thông tin user hiện tại từ userId (UUID). */
     fun me(userId: UUID): UserResponse {
@@ -71,9 +73,10 @@ class AuthService(
         )
 
         val savedUser = userRepository.save(user)
+        val savedUserId = requireNotNull(savedUser.id) { "User ID must not be null after save" }
 
         val token = jwtService.generateToken(
-            userId = requireNotNull(savedUser.id) { "User ID must not be null after save" },
+            userId = savedUserId,
             email = savedUser.email,
             role = savedUser.role.name
         )
@@ -83,9 +86,18 @@ class AuthService(
             email = savedUser.email,
             role = savedUser.role.name,
             name = savedUser.name,
-            id = savedUser.id,
+            id = savedUserId,
             joinedAt = savedUser.createdAt,
-        )
+        ).also {
+            auditService.log(
+                ownerId = savedUserId,
+                actorId = savedUserId,
+                action = "CREATE",
+                entityType = "User",
+                entityId = savedUserId,
+                snapshot = "{\"email\": \"${savedUser.email.replace("\"", "\\\"")}\"}",
+            )
+        }
     }
 
     fun login(request: LoginRequest): AuthResponse {

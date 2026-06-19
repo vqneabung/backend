@@ -120,12 +120,13 @@ class ProductController(
     @PostMapping("/{id}/units")
     @PreAuthorize("hasAnyRole('USER', 'ADMIN')")
     fun addUnit(
+        auth: Authentication,
         @PathVariable id: UUID,
         @RequestParam unitId: UUID,
         @RequestParam price: BigDecimal,
         @RequestParam(required = false) conversionRate: BigDecimal?,
     ): ResponseEntity<ApiResponse<Unit>> {
-        productService.addUnit(id, unitId, price, conversionRate)
+        productService.addUnit(SecurityUtils.getUserId(auth), id, unitId, price, conversionRate)
         return ResponseEntity.status(HttpStatus.CREATED)
             .body(ApiResponse.ok("Unit added"))
     }
@@ -137,10 +138,11 @@ class ProductController(
     @DeleteMapping("/{id}/units/{unitId}")
     @PreAuthorize("hasAnyRole('USER', 'ADMIN')")
     fun removeUnit(
+        auth: Authentication,
         @PathVariable id: UUID,
         @PathVariable unitId: UUID,
     ): ResponseEntity<ApiResponse<Unit>> {
-        productService.removeUnit(id, unitId)
+        productService.removeUnit(SecurityUtils.getUserId(auth), id, unitId)
         return ResponseEntity.ok(ApiResponse.ok("Unit removed"))
     }
 }

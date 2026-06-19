@@ -1,5 +1,6 @@
 package com.vqn.bizflow.backend.admin.service
 
+import com.vqn.bizflow.backend.audit.service.AuditService
 import com.vqn.bizflow.backend.auth.dto.UserResponse
 import com.vqn.bizflow.backend.auth.entity.UserEntity
 import com.vqn.bizflow.backend.auth.repository.UserRepository
@@ -24,6 +25,7 @@ import java.util.UUID
 class AdminUserService(
     private val userRepository: UserRepository,
     private val messageSource: MessageSource,
+    private val auditService: AuditService,
 ) {
     companion object {
         private const val DEFAULT_PAGE = 1
@@ -76,5 +78,13 @@ class AdminUserService(
             .orElseThrow { ResourceNotFoundException(msg("user.not-found")) }
         user.isActive = false
         userRepository.save(user)
+        auditService.log(
+            ownerId = id,
+            actorId = id,
+            action = "DEACTIVATE",
+            entityType = "User",
+            entityId = id,
+            snapshot = "{\"email\": \"${user.email.replace("\"", "\\\"")}\"}",
+        )
     }
 }

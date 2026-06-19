@@ -1,5 +1,6 @@
 package com.vqn.bizflow.backend.inventory.service
 
+import com.vqn.bizflow.backend.audit.service.AuditService
 import com.vqn.bizflow.backend.dto.PaginationResponse
 import com.vqn.bizflow.backend.exception.BadRequestException
 import com.vqn.bizflow.backend.exception.ResourceNotFoundException
@@ -44,6 +45,7 @@ class StockImportService(
     private val productRepo: ProductRepository,
     private val stockImportMapper: StockImportMapper,
     private val messageSource: MessageSource,
+    private val auditService: AuditService,
 ) {
     private val log = LoggerFactory.getLogger(StockImportService::class.java)
 
@@ -120,6 +122,15 @@ class StockImportService(
         val finalSaved = stockImportRepo.save(saved)
 
         log.info("Stock import {} created: {} items, total={}", refNumber, itemEntities.size, totalCost)
+
+        auditService.log(
+            ownerId = userId,
+            actorId = userId,
+            action = "CREATE",
+            entityType = "StockImport",
+            entityId = savedId,
+            snapshot = "{\"referenceNumber\": \"$refNumber\", \"totalCost\": \"$totalCost\"}",
+        )
 
         // 7. Build response
         val itemResponses = savedItems.map { item ->
