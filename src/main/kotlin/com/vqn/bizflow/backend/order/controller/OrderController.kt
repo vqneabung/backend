@@ -60,6 +60,9 @@ class OrderController(
             .body(ApiResponse.created(response, "Order created"))
     }
 
+    private fun Authentication.isAdmin(): Boolean =
+        authorities.any { it.authority == "ROLE_ADMIN" }
+
     @Operation(
         summary = "Danh sách đơn hàng",
         description = "Phân trang, filter theo status và khoảng thời gian.",
@@ -74,7 +77,7 @@ class OrderController(
         @RequestParam(required = false) toDate: Instant?,
     ): ResponseEntity<PaginationResponse<OrderSummaryResponse>> {
         val result = orderService.list(
-            SecurityUtils.getUserId(auth), page, size, status, fromDate, toDate,
+            SecurityUtils.getUserId(auth), page, size, status, fromDate, toDate, isAdmin = auth.isAdmin(),
         )
         return ResponseEntity.ok(result)
     }
@@ -88,7 +91,7 @@ class OrderController(
         auth: Authentication,
         @PathVariable id: UUID,
     ): ResponseEntity<ApiResponse<OrderResponse>> {
-        val result = orderService.getById(SecurityUtils.getUserId(auth), id)
+        val result = orderService.getById(SecurityUtils.getUserId(auth), id, isAdmin = auth.isAdmin())
         return ResponseEntity.ok(ApiResponse.success(result))
     }
 
@@ -113,7 +116,7 @@ class OrderController(
         @RequestBody request: UpdateOrderStatusRequest?,
     ): ResponseEntity<ApiResponse<OrderResponse>> {
         val result = orderService.cancel(
-            SecurityUtils.getUserId(auth), id, request?.notes,
+            SecurityUtils.getUserId(auth), id, request?.notes, isAdmin = auth.isAdmin(),
         )
         return ResponseEntity.ok(ApiResponse.success(result, "Order cancelled"))
     }

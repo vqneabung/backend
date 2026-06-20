@@ -169,12 +169,17 @@ class OrderService(
         status: String?,
         fromDate: Instant?,
         toDate: Instant?,
+        isAdmin: Boolean = false,
     ): PaginationResponse<OrderSummaryResponse> {
         val p = page.coerceAtLeast(1)
         val s = size.coerceIn(1, MAX_SIZE)
         val pageable = PageRequest.of(p - 1, s, Sort.by(Sort.Direction.DESC, "createdAt"))
 
-        val result = orderRepo.findByOwnerId(userId, status?.takeIf { it.isNotBlank() }, fromDate, toDate, pageable)
+        val result = if (isAdmin) {
+            orderRepo.findAllActive(status?.takeIf { it.isNotBlank() }, fromDate, toDate, pageable)
+        } else {
+            orderRepo.findByOwnerId(userId, status?.takeIf { it.isNotBlank() }, fromDate, toDate, pageable)
+        }
 
         // Batch count items tránh N+1 query (1 query thay vì N queries)
         val orderIds = result.content.mapNotNull { it.id }
@@ -211,9 +216,14 @@ class OrderService(
     /**
      * Xem chi tiết 1 đơn hàng (kèm items).
      */
-    fun getById(userId: UUID, orderId: UUID): OrderResponse {
-        val entity = orderRepo.findByIdAndOwnerId(orderId, userId)
-            ?: throw ResourceNotFoundException(msg("order.not-found"))
+    fun getById(userId: UUID, orderId: UUID, isAdmin: Boolean = false): OrderResponse {
+        val entity = if (isAdmin) {
+            orderRepo.findByIdForAdmin(orderId)
+                ?: throw ResourceNotFoundException(msg("order.not-found"))
+        } else {
+            orderRepo.findByIdAndOwnerId(orderId, userId)
+                ?: throw ResourceNotFoundException(msg("order.not-found"))
+        }
 
         val items = orderItemRepo.findByOrderIdOrderByCreatedAt(orderId)
         val itemResponses = items.map { orderMapper.toItemResponse(it) }
@@ -225,9 +235,14 @@ class OrderService(
      * Hủy đơn hàng — chỉ hủy được DRAFT hoặc CONFIRMED.
      * Nếu CONFIRMED → hoàn lại stock cho từng sản phẩm.
      */
-    fun cancel(userId: UUID, orderId: UUID, notes: String?): OrderResponse {
-        val entity = orderRepo.findByIdAndOwnerId(orderId, userId)
-            ?: throw ResourceNotFoundException(msg("order.not-found"))
+    fun cancel(userId: UUID, orderId: UUID, notes: String?, isAdmin: Boolean = false): OrderResponse {
+        val entity = if (isAdmin) {
+            orderRepo.findByIdForAdmin(orderId)
+                ?: throw ResourceNotFoundException(msg("order.not-found"))
+        } else {
+            orderRepo.findByIdAndOwnerId(orderId, userId)
+                ?: throw ResourceNotFoundException(msg("order.not-found"))
+        }
 
         val cancelledOrderId = requireNotNull(entity.id) { "Order ID must not be null" }
 

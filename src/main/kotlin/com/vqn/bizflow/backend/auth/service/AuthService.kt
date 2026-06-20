@@ -46,6 +46,7 @@ class AuthService(
             role = user.role.name,
             joinedAt = user.createdAt,
             emailVerifiedAt = user.emailVerifiedAt,
+            isActive = user.isActive,
         )
     }
 
@@ -140,6 +141,7 @@ class AuthService(
             role = savedUser.role.name,
             joinedAt = savedUser.createdAt,
             emailVerifiedAt = savedUser.emailVerifiedAt,
+            isActive = savedUser.isActive,
         )
     }
 

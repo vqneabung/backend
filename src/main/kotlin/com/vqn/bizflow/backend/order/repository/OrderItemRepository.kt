@@ -42,4 +42,16 @@ interface OrderItemRepository : JpaRepository<OrderItemEntity, UUID> {
         ORDER BY SUM(i.quantity) DESC
     """)
     fun findTopSellingByOwnerId(@Param("ownerId") ownerId: UUID): List<Array<Any>>
+
+    /** Top sản phẩm bán chạy toàn hệ thống (từ đơn CONFIRMED) */
+    @Query("""
+        SELECT i.productId, i.productName, SUM(i.quantity), SUM(i.subtotal)
+        FROM OrderItemEntity i 
+        WHERE i.orderId IN (
+            SELECT o.id FROM OrderEntity o WHERE o.status = 'CONFIRMED'
+        )
+        GROUP BY i.productId, i.productName
+        ORDER BY SUM(i.quantity) DESC
+    """)
+    fun findTopSellingAllActive(): List<Array<Any>>
 }

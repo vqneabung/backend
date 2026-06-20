@@ -28,7 +28,7 @@ class UserEntity(
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
-    val role: Role = Role.USER,
+    var role: Role = Role.USER,
 
     // Tên hiển thị của user — dùng cho OIDC "profile" scope
     // Nullable: không bắt buộc khi register (có thể cập nhật sau)

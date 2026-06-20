@@ -29,4 +29,7 @@ data class UserResponse(
 
     @field:Schema(description = "Thời gian xác thực email (null = chưa xác thực)", example = "2026-06-15T10:30:00Z")
     val emailVerifiedAt: Instant?,
+
+    @field:Schema(description = "Trạng thái active", example = "true")
+    val isActive: Boolean,
 )

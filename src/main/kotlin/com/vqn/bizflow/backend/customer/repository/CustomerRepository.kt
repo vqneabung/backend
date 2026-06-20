@@ -39,4 +39,8 @@ interface CustomerRepository : JpaRepository<CustomerEntity, UUID> {
     /** Đếm số customers active của owner */
     @Query("SELECT COUNT(c) FROM CustomerEntity c WHERE c.ownerId = :ownerId")
     fun countByOwnerId(@Param("ownerId") ownerId: UUID): Long
+
+    /** Đếm tổng số customers active trên toàn hệ thống */
+    @Query("SELECT COUNT(c) FROM CustomerEntity c")
+    fun countAllActive(): Long
 }

@@ -11,6 +11,9 @@ import org.springframework.security.access.prepost.PreAuthorize
 import org.springframework.security.core.Authentication
 import org.springframework.web.bind.annotation.*
 
+private fun Authentication.isAdmin(): Boolean =
+    authorities.any { it.authority == "ROLE_ADMIN" }
+
 /**
  * ReportController — REST API báo cáo thống kê (FR-19 → FR-22).
  *
@@ -29,7 +32,8 @@ class ReportController(
     @GetMapping("/overview")
     @PreAuthorize("hasAnyRole('USER', 'ADMIN')")
     fun overview(auth: Authentication): ResponseEntity<ApiResponse<ReportOverviewResponse>> {
-        val result = reportService.getOverview(SecurityUtils.getUserId(auth))
+        val isAdmin = auth.isAdmin()
+        val result = reportService.getOverview(SecurityUtils.getUserId(auth), isAdmin)
         return ResponseEntity.ok(ApiResponse.success(result))
     }
 
@@ -43,7 +47,8 @@ class ReportController(
         auth: Authentication,
         @RequestParam(defaultValue = "30d") range: String,
     ): ResponseEntity<ApiResponse<RevenueReportResponse>> {
-        val result = reportService.getRevenue(SecurityUtils.getUserId(auth), range)
+        val isAdmin = auth.isAdmin()
+        val result = reportService.getRevenue(SecurityUtils.getUserId(auth), range, isAdmin)
         return ResponseEntity.ok(ApiResponse.success(result))
     }
 
@@ -57,7 +62,8 @@ class ReportController(
         auth: Authentication,
         @RequestParam(defaultValue = "10") limit: Int,
     ): ResponseEntity<ApiResponse<BestSellingReportResponse>> {
-        val result = reportService.getBestSelling(SecurityUtils.getUserId(auth), limit)
+        val isAdmin = auth.isAdmin()
+        val result = reportService.getBestSelling(SecurityUtils.getUserId(auth), limit, isAdmin)
         return ResponseEntity.ok(ApiResponse.success(result))
     }
 
@@ -68,7 +74,8 @@ class ReportController(
     @GetMapping("/inventory")
     @PreAuthorize("hasAnyRole('USER', 'ADMIN')")
     fun inventory(auth: Authentication): ResponseEntity<ApiResponse<InventoryReportResponse>> {
-        val result = reportService.getInventory(SecurityUtils.getUserId(auth))
+        val isAdmin = auth.isAdmin()
+        val result = reportService.getInventory(SecurityUtils.getUserId(auth), isAdmin)
         return ResponseEntity.ok(ApiResponse.success(result))
     }
 
@@ -79,7 +86,8 @@ class ReportController(
     @GetMapping("/debt")
     @PreAuthorize("hasAnyRole('USER', 'ADMIN')")
     fun debt(auth: Authentication): ResponseEntity<ApiResponse<DebtReportResponse>> {
-        val result = reportService.getDebt(SecurityUtils.getUserId(auth))
+        val isAdmin = auth.isAdmin()
+        val result = reportService.getDebt(SecurityUtils.getUserId(auth), isAdmin)
         return ResponseEntity.ok(ApiResponse.success(result))
     }
 }

@@ -30,7 +30,7 @@ interface ProductRepository : JpaRepository<ProductEntity, UUID> {
     @Query("SELECT p FROM ProductEntity p WHERE p.ownerId = :ownerId")
     fun findByOwnerId(@Param("ownerId") ownerId: UUID, pageable: Pageable): Page<ProductEntity>
 
-    /** Tìm kiếm SP theo tên (LIKE) + lọc categoryId */
+    /** Tìm kiếm SP theo tên (LIKE) + lọc categoryId — cùng owner */
     @EntityGraph(attributePaths = ["category", "primaryUnit"])
     @Query("""
         SELECT p FROM ProductEntity p 
@@ -40,6 +40,24 @@ interface ProductRepository : JpaRepository<ProductEntity, UUID> {
     """)
     fun searchByOwnerId(
         @Param("ownerId") ownerId: UUID,
+        @Param("search") search: String?,
+        @Param("categoryId") categoryId: UUID?,
+        pageable: Pageable,
+    ): Page<ProductEntity>
+
+    /** Toàn bộ SP active (không lọc owner — dùng cho ADMIN). */
+    @EntityGraph(attributePaths = ["category", "primaryUnit"])
+    @Query("SELECT p FROM ProductEntity p")
+    fun findAllActive(pageable: Pageable): Page<ProductEntity>
+
+    /** Tìm kiếm SP toàn hệ thống (không lọc owner — dùng cho ADMIN). */
+    @EntityGraph(attributePaths = ["category", "primaryUnit"])
+    @Query("""
+        SELECT p FROM ProductEntity p 
+        WHERE (:search IS NULL OR LOWER(p.name) LIKE LOWER(CONCAT('%', :search, '%')))
+        AND (:categoryId IS NULL OR p.category.id = :categoryId)
+    """)
+    fun searchAllActive(
         @Param("search") search: String?,
         @Param("categoryId") categoryId: UUID?,
         pageable: Pageable,
@@ -91,4 +109,26 @@ interface ProductRepository : JpaRepository<ProductEntity, UUID> {
 
     @Query("SELECT COALESCE(p.category.name, '(No category)'), COUNT(p) FROM ProductEntity p WHERE p.ownerId = :ownerId GROUP BY p.category.name ORDER BY COUNT(p) DESC")
     fun countByCategory(@Param("ownerId") ownerId: UUID): List<Array<Any>>
+
+    // ═══════════════════════════════════════════════
+    // Platform-wide report queries (no owner filter)
+    // ═══════════════════════════════════════════════
+
+    @Query("SELECT COUNT(p) FROM ProductEntity p")
+    fun countAllActive(): Long
+
+    @Query("SELECT COALESCE(SUM(p.stock * COALESCE(p.costPrice, 0)), 0) FROM ProductEntity p")
+    fun sumInventoryValueAllActive(): BigDecimal
+
+    @Query("SELECT COALESCE(SUM(p.stock), 0) FROM ProductEntity p")
+    fun sumTotalStockAllActive(): BigDecimal
+
+    @Query("SELECT COUNT(p) FROM ProductEntity p WHERE p.stock <= p.minStock")
+    fun countLowStockAllActive(): Long
+
+    @Query("SELECT p FROM ProductEntity p WHERE p.stock <= p.minStock ORDER BY p.stock ASC")
+    fun findLowStockAllActive(): List<ProductEntity>
+
+    @Query("SELECT COALESCE(p.category.name, '(No category)'), COUNT(p) FROM ProductEntity p GROUP BY p.category.name ORDER BY COUNT(p) DESC")
+    fun countByCategoryAllActive(): List<Array<Any>>
 }

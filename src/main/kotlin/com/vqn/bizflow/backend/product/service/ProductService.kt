@@ -243,6 +243,7 @@ class ProductService(
         size: Int,
         sortBy: String?,
         sortDir: String?,
+        isAdmin: Boolean = false,
     ): PaginationResponse<ProductResponse> {
         val actualSortBy = sortBy?.takeIf { it in VALID_SORT_FIELDS } ?: "createdAt"
         val actualSortDir = if (sortDir.equals("asc", ignoreCase = true)) Sort.Direction.ASC else Sort.Direction.DESC
@@ -251,7 +252,17 @@ class ProductService(
 
         val pageable = PageRequest.of(actualPage, actualSize, Sort.by(actualSortDir, actualSortBy))
 
-        val result: Page<ProductEntity> = if (search.isNullOrBlank() && categoryId == null) {
+        val result: Page<ProductEntity> = if (isAdmin) {
+            if (search.isNullOrBlank() && categoryId == null) {
+                productRepo.findAllActive(pageable)
+            } else {
+                productRepo.searchAllActive(
+                    search = search?.takeIf { it.isNotBlank() },
+                    categoryId = categoryId,
+                    pageable = pageable,
+                )
+            }
+        } else if (search.isNullOrBlank() && categoryId == null) {
             productRepo.findByOwnerId(userId, pageable)
         } else {
             productRepo.searchByOwnerId(

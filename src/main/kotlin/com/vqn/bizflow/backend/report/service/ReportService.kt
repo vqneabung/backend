@@ -40,20 +40,28 @@ class ReportService(
     /**
      * Dashboard overview — stat cards.
      */
-    fun getOverview(ownerId: UUID): ReportOverviewResponse {
+    fun getOverview(ownerId: UUID, isAdmin: Boolean = false): ReportOverviewResponse {
         val now = LocalDate.now(ZoneId.of(VIETNAM_TZ))
         val startOfMonth = now.withDayOfMonth(1).atStartOfDay(ZoneId.of(VIETNAM_TZ)).toInstant()
         val startOfNextMonth = now.plusMonths(1).withDayOfMonth(1).atStartOfDay(ZoneId.of(VIETNAM_TZ)).toInstant()
 
-        val totalProducts = productRepo.countByOwnerId(ownerId)
-        val totalOrdersThisMonth = orderRepo.countByOwnerIdAndStatusAndCreatedAtBetween(
-            ownerId, "CONFIRMED", startOfMonth, startOfNextMonth,
-        )
-        val totalRevenueThisMonth = orderRepo.sumTotalAmountByOwnerIdAndStatusAndCreatedAtBetween(
-            ownerId, "CONFIRMED", startOfMonth, startOfNextMonth,
-        )
-        val totalCustomers = customerRepo.countByOwnerId(ownerId)
-        val lowStockCount = productRepo.countLowStock(ownerId)
+        val totalProducts: Long = if (isAdmin) productRepo.countAllActive() else productRepo.countByOwnerId(ownerId)
+        val totalOrdersThisMonth: Long = if (isAdmin) {
+            orderRepo.countByStatusAndCreatedAtBetween("CONFIRMED", startOfMonth, startOfNextMonth)
+        } else {
+            orderRepo.countByOwnerIdAndStatusAndCreatedAtBetween(
+                ownerId, "CONFIRMED", startOfMonth, startOfNextMonth,
+            )
+        }
+        val totalRevenueThisMonth: BigDecimal = if (isAdmin) {
+            orderRepo.sumTotalAmountByStatusAndCreatedAtBetween("CONFIRMED", startOfMonth, startOfNextMonth)
+        } else {
+            orderRepo.sumTotalAmountByOwnerIdAndStatusAndCreatedAtBetween(
+                ownerId, "CONFIRMED", startOfMonth, startOfNextMonth,
+            )
+        }
+        val totalCustomers: Long = if (isAdmin) customerRepo.countAllActive() else customerRepo.countByOwnerId(ownerId)
+        val lowStockCount: Long = if (isAdmin) productRepo.countLowStockAllActive() else productRepo.countLowStock(ownerId)
 
         return ReportOverviewResponse(
             totalProducts = totalProducts,
@@ -68,7 +76,7 @@ class ReportService(
      * Daily revenue for chart.
      * range: 7d | 30d | thisMonth
      */
-    fun getRevenue(ownerId: UUID, range: String): RevenueReportResponse {
+    fun getRevenue(ownerId: UUID, range: String, isAdmin: Boolean = false): RevenueReportResponse {
         val now = LocalDate.now(ZoneId.of(VIETNAM_TZ))
         val tz = ZoneId.of(VIETNAM_TZ)
 
@@ -84,9 +92,13 @@ class ReportService(
         val toInstant = periodEnd.plusDays(1).atStartOfDay(tz).toInstant()
 
         // Fetch all CONFIRMED orders in period
-        val orders = orderRepo.findByOwnerIdAndStatusAndCreatedAtBetween(
-            ownerId, "CONFIRMED", fromInstant, toInstant,
-        )
+        val orders = if (isAdmin) {
+            orderRepo.findByStatusAndCreatedAtBetween("CONFIRMED", fromInstant, toInstant)
+        } else {
+            orderRepo.findByOwnerIdAndStatusAndCreatedAtBetween(
+                ownerId, "CONFIRMED", fromInstant, toInstant,
+            )
+        }
 
         // Group by date (Vietnam TZ)
         val dailyRevenue: Map<LocalDate, BigDecimal> = orders.groupBy(
@@ -117,8 +129,8 @@ class ReportService(
     /**
      * Top N best-selling products.
      */
-    fun getBestSelling(ownerId: UUID, limit: Int = 10): BestSellingReportResponse {
-        val rows = orderItemRepo.findTopSellingByOwnerId(ownerId)
+    fun getBestSelling(ownerId: UUID, limit: Int = 10, isAdmin: Boolean = false): BestSellingReportResponse {
+        val rows = if (isAdmin) orderItemRepo.findTopSellingAllActive() else orderItemRepo.findTopSellingByOwnerId(ownerId)
 
         val products = rows.take(limit).map { row ->
             BestSellingProduct(
@@ -135,14 +147,18 @@ class ReportService(
     /**
      * Inventory status — totals, low stock, category breakdown.
      */
-    fun getInventory(ownerId: UUID): InventoryReportResponse {
-        val totalProducts = productRepo.countByOwnerId(ownerId)
-        val totalValue = productRepo.sumInventoryValue(ownerId)
+    fun getInventory(ownerId: UUID, isAdmin: Boolean = false): InventoryReportResponse {
+        val totalProducts: Long = if (isAdmin) productRepo.countAllActive() else productRepo.countByOwnerId(ownerId)
+        val totalValue: BigDecimal = if (isAdmin) productRepo.sumInventoryValueAllActive() else productRepo.sumInventoryValue(ownerId)
 
         // Low stock
-        val lowStockEntities = productRepo.findByOwnerIdAndStockLessThanEqualOrderByStockAsc(
-            ownerId, BigDecimal.valueOf(Long.MAX_VALUE),
-        )
+        val lowStockEntities = if (isAdmin) {
+            productRepo.findLowStockAllActive()
+        } else {
+            productRepo.findByOwnerIdAndStockLessThanEqualOrderByStockAsc(
+                ownerId, BigDecimal.valueOf(Long.MAX_VALUE),
+            )
+        }
         val lowStockProducts = lowStockEntities
             .filter { it.stock <= it.minStock }
             .map { entity ->
@@ -155,7 +171,7 @@ class ReportService(
             }
 
         // Category breakdown
-        val categoryRows = productRepo.countByCategory(ownerId)
+        val categoryRows = if (isAdmin) productRepo.countByCategoryAllActive() else productRepo.countByCategory(ownerId)
         val byCategory = categoryRows.map { row ->
             CategoryCount(
                 categoryName = row[0] as? String,
@@ -174,13 +190,21 @@ class ReportService(
     /**
      * Outstanding customer debt report.
      */
-    fun getDebt(ownerId: UUID): DebtReportResponse {
+    fun getDebt(ownerId: UUID, isAdmin: Boolean = false): DebtReportResponse {
         // Query orders with debt from DB
-        val ordersWithDebt = orderRepo.findByOwnerIdAndStatusAndCreatedAtBetween(
-            ownerId, "CONFIRMED",
-            Instant.parse("2000-01-01T00:00:00Z"), // far past
-            Instant.now().plusSeconds(86400), // far future
-        ).filter { it.debtAmount > BigDecimal.ZERO }
+        val ordersWithDebt = if (isAdmin) {
+            orderRepo.findByStatusAndCreatedAtBetween(
+                "CONFIRMED",
+                Instant.parse("2000-01-01T00:00:00Z"), // far past
+                Instant.now().plusSeconds(86400), // far future
+            )
+        } else {
+            orderRepo.findByOwnerIdAndStatusAndCreatedAtBetween(
+                ownerId, "CONFIRMED",
+                Instant.parse("2000-01-01T00:00:00Z"), // far past
+                Instant.now().plusSeconds(86400), // far future
+            )
+        }.filter { it.debtAmount > BigDecimal.ZERO }
 
         // Group by customerId
         val debtByCustomer: Map<UUID?, List<Pair<UUID, BigDecimal>>> = ordersWithDebt.groupBy(

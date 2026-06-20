@@ -1,10 +1,13 @@
 package com.vqn.bizflow.backend.admin.service
 
+import com.vqn.bizflow.backend.admin.dto.AdminUserUpdateRequest
 import com.vqn.bizflow.backend.audit.service.AuditService
 import com.vqn.bizflow.backend.auth.dto.UserResponse
+import com.vqn.bizflow.backend.auth.entity.Role
 import com.vqn.bizflow.backend.auth.entity.UserEntity
 import com.vqn.bizflow.backend.auth.repository.UserRepository
 import com.vqn.bizflow.backend.dto.PaginationResponse
+import com.vqn.bizflow.backend.exception.BadRequestException
 import com.vqn.bizflow.backend.exception.ResourceNotFoundException
 import org.springframework.context.MessageSource
 import org.springframework.context.i18n.LocaleContextHolder
@@ -43,6 +46,7 @@ class AdminUserService(
         role = user.role.name,
         joinedAt = user.createdAt,
         emailVerifiedAt = user.emailVerifiedAt,
+        isActive = user.isActive,
     )
 
     @Transactional(readOnly = true)
@@ -74,8 +78,7 @@ class AdminUserService(
 
     /** Soft delete: set is_active = false (giữ audit trail). */
     fun softDelete(id: UUID) {
-        val user = userRepository.findById(id)
-            .orElseThrow { ResourceNotFoundException(msg("user.not-found")) }
+        val user = findUserById(id)
         user.isActive = false
         userRepository.save(user)
         auditService.log(
@@ -87,4 +90,34 @@ class AdminUserService(
             snapshot = "{\"email\": \"${user.email.replace("\"", "\\\"")}\"}",
         )
     }
+
+    fun update(id: UUID, request: AdminUserUpdateRequest, actorId: UUID): UserResponse {
+        val user = findUserById(id)
+
+        user.name = request.name
+
+        val newRole = try {
+            Role.valueOf(request.role.uppercase())
+        } catch (e: IllegalArgumentException) {
+            throw BadRequestException(msg("auth.register.invalid-role") + ": ${request.role}")
+        }
+        user.role = newRole
+
+        val saved = userRepository.save(user)
+
+        auditService.log(
+            ownerId = id,
+            actorId = actorId,
+            action = "UPDATE",
+            entityType = "User",
+            entityId = id,
+            snapshot = "{\"name\": \"${saved.name?.replace("\"", "\\\"")}\", \"role\": \"${saved.role.name}\"}",
+        )
+
+        return toResponse(saved)
+    }
+
+    private fun findUserById(id: UUID): UserEntity =
+        userRepository.findById(id)
+            .orElseThrow { ResourceNotFoundException(msg("user.not-found")) }
 }

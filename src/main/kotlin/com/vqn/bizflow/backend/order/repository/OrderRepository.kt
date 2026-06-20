@@ -37,6 +37,24 @@ interface OrderRepository : JpaRepository<OrderEntity, UUID> {
     /** Tìm đơn hàng của 1 owner (kiểm tra ownership) */
     fun findByIdAndOwnerId(id: UUID, ownerId: UUID): OrderEntity?
 
+    /** Tìm đơn hàng bất kỳ — dùng cho admin (bypass owner check) */
+    @Query("SELECT o FROM OrderEntity o WHERE o.id = :id")
+    fun findByIdForAdmin(@Param("id") id: UUID): OrderEntity?
+
+    /** List toàn bộ đơn hàng active — dùng cho admin */
+    @Query("""
+        SELECT o FROM OrderEntity o
+        WHERE (:status IS NULL OR o.status = :status)
+        AND (:fromDate IS NULL OR o.createdAt >= :fromDate)
+        AND (:toDate IS NULL OR o.createdAt <= :toDate)
+    """)
+    fun findAllActive(
+        @Param("status") status: String?,
+        @Param("fromDate") fromDate: Instant?,
+        @Param("toDate") toDate: Instant?,
+        pageable: Pageable,
+    ): Page<OrderEntity>
+
     /** List đơn hàng theo khách hàng — dùng cho Customer Purchase History (FR-17) */
     @Query("""
         SELECT o FROM OrderEntity o
@@ -78,6 +96,31 @@ interface OrderRepository : JpaRepository<OrderEntity, UUID> {
     @Query("SELECT o FROM OrderEntity o WHERE o.ownerId = :ownerId AND o.status = :status AND o.createdAt BETWEEN :fromDate AND :toDate ORDER BY o.createdAt ASC")
     fun findByOwnerIdAndStatusAndCreatedAtBetween(
         @Param("ownerId") ownerId: UUID,
+        @Param("status") status: String,
+        @Param("fromDate") fromDate: Instant,
+        @Param("toDate") toDate: Instant,
+    ): List<OrderEntity>
+
+    // ═══════════════════════════════════════════════
+    // Platform-wide report queries (no owner filter)
+    // ═══════════════════════════════════════════════
+
+    @Query("SELECT COALESCE(SUM(o.totalAmount), 0) FROM OrderEntity o WHERE o.status = :status AND o.createdAt BETWEEN :fromDate AND :toDate")
+    fun sumTotalAmountByStatusAndCreatedAtBetween(
+        @Param("status") status: String,
+        @Param("fromDate") fromDate: Instant,
+        @Param("toDate") toDate: Instant,
+    ): BigDecimal
+
+    @Query("SELECT COUNT(o) FROM OrderEntity o WHERE o.status = :status AND o.createdAt BETWEEN :fromDate AND :toDate")
+    fun countByStatusAndCreatedAtBetween(
+        @Param("status") status: String,
+        @Param("fromDate") fromDate: Instant,
+        @Param("toDate") toDate: Instant,
+    ): Long
+
+    @Query("SELECT o FROM OrderEntity o WHERE o.status = :status AND o.createdAt BETWEEN :fromDate AND :toDate ORDER BY o.createdAt ASC")
+    fun findByStatusAndCreatedAtBetween(
         @Param("status") status: String,
         @Param("fromDate") fromDate: Instant,
         @Param("toDate") toDate: Instant,

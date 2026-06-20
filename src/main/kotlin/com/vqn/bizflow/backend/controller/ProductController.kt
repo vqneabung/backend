@@ -20,6 +20,9 @@ import org.springframework.web.bind.annotation.*
 import java.math.BigDecimal
 import java.util.UUID
 
+private fun Authentication.isAdmin(): Boolean =
+    authorities.any { it.authority == "ROLE_ADMIN" }
+
 /**
  * ProductController — REST API quản lý sản phẩm.
  *
@@ -68,8 +71,9 @@ class ProductController(
         @RequestParam(required = false) sortBy: String?,
         @RequestParam(defaultValue = "desc") sortDir: String?,
     ): ResponseEntity<PaginationResponse<ProductResponse>> {
+        val isAdmin = auth.isAdmin()
         val result = productService.list(
-            SecurityUtils.getUserId(auth), search, categoryId, page, size, sortBy, sortDir
+            SecurityUtils.getUserId(auth), search, categoryId, page, size, sortBy, sortDir, isAdmin
         )
         return ResponseEntity.ok(result)
     }
