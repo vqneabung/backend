@@ -53,6 +53,7 @@ dependencies {
 	kapt("org.mapstruct:mapstruct-processor:1.6.3")
 	// MinIO — Object Storage SDK
 	implementation("io.minio:minio:8.5.17")
+	implementation("com.github.librepdf:openpdf:2.2.3")
 }
 
 kapt {
