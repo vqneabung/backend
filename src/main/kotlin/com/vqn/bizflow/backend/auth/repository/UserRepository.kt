@@ -1,5 +1,6 @@
 package com.vqn.bizflow.backend.auth.repository
 
+import com.vqn.bizflow.backend.auth.entity.Role
 import com.vqn.bizflow.backend.auth.entity.UserEntity
 import org.springframework.data.domain.Page
 import org.springframework.data.domain.Pageable
@@ -17,4 +18,6 @@ interface UserRepository : JpaRepository<UserEntity, UUID> {
            OR LOWER(u.name) LIKE LOWER(CONCAT('%', :search, '%'))
     """)
     fun searchByEmailOrName(search: String, pageable: Pageable): Page<UserEntity>
+
+    fun findByOwnerIdAndRole(ownerId: UUID, role: Role, pageable: Pageable): Page<UserEntity>
 }

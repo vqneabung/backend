@@ -59,9 +59,10 @@ class ProductController(
 
     @Operation(
         summary = "Danh sách sản phẩm",
-        description = "Phân trang, tìm kiếm, lọc theo categoryId. Tất cả roles đều xem được.",
+        description = "Phân trang, tìm kiếm, lọc theo categoryId. USER, EMPLOYEE và ADMIN đều xem được.",
     )
     @GetMapping
+    @PreAuthorize("hasAnyRole('USER', 'EMPLOYEE', 'ADMIN')")
     fun list(
         auth: Authentication,
         @RequestParam(required = false) search: String?,
@@ -80,6 +81,7 @@ class ProductController(
 
     @Operation(summary = "Chi tiết sản phẩm")
     @GetMapping("/{id}")
+    @PreAuthorize("hasAnyRole('USER', 'EMPLOYEE', 'ADMIN')")
     fun getById(
         auth: Authentication,
         @PathVariable id: UUID,

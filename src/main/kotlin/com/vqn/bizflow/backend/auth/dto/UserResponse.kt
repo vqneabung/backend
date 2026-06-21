@@ -32,4 +32,7 @@ data class UserResponse(
 
     @field:Schema(description = "Trạng thái active", example = "true")
     val isActive: Boolean,
+
+    @field:Schema(description = "Owner ID nếu user là EMPLOYEE, null nếu là Owner/Admin", example = "550e8400-e29b-41d4-a716-446655440000")
+    val ownerId: UUID? = null,
 )

@@ -50,7 +50,7 @@ class OrderController(
         SwaggerApiResponse(responseCode = "404", description = "Sản phẩm không tồn tại"),
     ])
     @PostMapping
-    @PreAuthorize("hasAnyRole('USER', 'ADMIN')")
+    @PreAuthorize("hasAnyRole('USER', 'EMPLOYEE', 'ADMIN')")
     fun create(
         auth: Authentication,
         @Valid @RequestBody request: CreateOrderRequest,
@@ -109,7 +109,7 @@ class OrderController(
         SwaggerApiResponse(responseCode = "404", description = "Không tìm thấy đơn"),
     ])
     @PatchMapping("/{id}/cancel")
-    @PreAuthorize("hasAnyRole('USER', 'ADMIN')")
+    @PreAuthorize("hasAnyRole('USER', 'EMPLOYEE', 'ADMIN')")
     fun cancel(
         auth: Authentication,
         @PathVariable id: UUID,

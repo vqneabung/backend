@@ -57,9 +57,10 @@ class CustomerController(
 
     @Operation(
         summary = "Danh sách khách hàng",
-        description = "Phân trang, tìm kiếm theo tên. Tất cả roles đều xem được.",
+        description = "Phân trang, tìm kiếm theo tên. USER, EMPLOYEE và ADMIN đều xem được.",
     )
     @GetMapping
+    @PreAuthorize("hasAnyRole('USER', 'EMPLOYEE', 'ADMIN')")
     fun list(
         auth: Authentication,
         @RequestParam(required = false) search: String?,
@@ -74,6 +75,7 @@ class CustomerController(
 
     @Operation(summary = "Chi tiết khách hàng")
     @GetMapping("/{id}")
+    @PreAuthorize("hasAnyRole('USER', 'EMPLOYEE', 'ADMIN')")
     fun getById(
         auth: Authentication,
         @PathVariable id: UUID,
@@ -116,6 +118,7 @@ class CustomerController(
         description = "Danh sách đơn hàng của 1 khách hàng, phân trang, mới nhất trước.",
     )
     @GetMapping("/{id}/orders")
+    @PreAuthorize("hasAnyRole('USER', 'EMPLOYEE', 'ADMIN')")
     fun getOrders(
         auth: Authentication,
         @PathVariable id: UUID,

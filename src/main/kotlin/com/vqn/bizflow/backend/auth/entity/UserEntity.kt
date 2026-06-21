@@ -7,6 +7,7 @@ import jakarta.persistence.EnumType
 import jakarta.persistence.Enumerated
 import jakarta.persistence.Table
 import org.hibernate.annotations.SQLRestriction
+import java.util.UUID
 
 /**
  * User — người dùng của hệ thống.
@@ -14,7 +15,7 @@ import org.hibernate.annotations.SQLRestriction
  * Kế thừa BaseEntity: id (UUID) + createdAt.
  * Không có updatedAt — User không có update flow trong thiết kế hiện tại.
  *
- * Role hiện tại: USER, ADMIN.
+ * Role hiện tại: USER (Owner), EMPLOYEE (nhân viên của Owner), ADMIN.
  */
 @Entity
 @Table(name = "users")
@@ -24,7 +25,7 @@ class UserEntity(
     val email: String,
 
     @Column(nullable = false)
-    val password: String,
+    var password: String,
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
@@ -42,4 +43,9 @@ class UserEntity(
     // Soft delete flag — false = user bị vô hiệu hóa
     @Column(name = "is_active", nullable = false)
     var isActive: Boolean = true,
+
+    // Nếu non-null: user này là EMPLOYEE thuộc về Owner có id này.
+    // Nếu null: user là Owner (USER) hoặc Admin (ADMIN) độc lập.
+    @Column(name = "owner_id", nullable = true)
+    var ownerId: UUID? = null,
 ) : BaseEntity()
