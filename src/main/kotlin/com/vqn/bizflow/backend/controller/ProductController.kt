@@ -2,6 +2,8 @@ package com.vqn.bizflow.backend.controller
 
 import com.vqn.bizflow.backend.dto.ApiResponse
 import com.vqn.bizflow.backend.dto.PaginationResponse
+import com.vqn.bizflow.backend.inventory.service.InventoryHistoryResponse
+import com.vqn.bizflow.backend.inventory.service.InventoryHistoryService
 import com.vqn.bizflow.backend.product.dto.CreateProductRequest
 import com.vqn.bizflow.backend.product.dto.ProductResponse
 import com.vqn.bizflow.backend.product.dto.UpdateProductRequest
@@ -36,6 +38,7 @@ private fun Authentication.isAdmin(): Boolean =
 @RequestMapping("/api/products")
 class ProductController(
     private val productService: ProductService,
+    private val inventoryHistoryService: InventoryHistoryService,
 ) {
     @Operation(
         summary = "Tạo sản phẩm mới",
@@ -150,5 +153,18 @@ class ProductController(
     ): ResponseEntity<ApiResponse<Unit>> {
         productService.removeUnit(SecurityUtils.getUserId(auth), id, unitId)
         return ResponseEntity.ok(ApiResponse.ok("Unit removed"))
+    }
+
+    @Operation(summary = "Lịch sử tồn kho sản phẩm")
+    @GetMapping("/{id}/inventory-history")
+    @PreAuthorize("hasAnyRole('USER', 'ADMIN', 'EMPLOYEE')")
+    fun inventoryHistory(
+        auth: Authentication,
+        @PathVariable id: UUID,
+        @RequestParam(defaultValue = "1") page: Int,
+        @RequestParam(defaultValue = "20") size: Int,
+    ): ResponseEntity<PaginationResponse<InventoryHistoryResponse>> {
+        val result = inventoryHistoryService.listByProduct(SecurityUtils.getUserId(auth), id, page, size)
+        return ResponseEntity.ok(result)
     }
 }

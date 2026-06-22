@@ -4,6 +4,9 @@ import com.vqn.bizflow.backend.audit.service.AuditService
 import com.vqn.bizflow.backend.dto.PaginationResponse
 import com.vqn.bizflow.backend.exception.BadRequestException
 import com.vqn.bizflow.backend.exception.ResourceNotFoundException
+import com.vqn.bizflow.backend.inventory.entity.MovementType
+import com.vqn.bizflow.backend.inventory.entity.RefType
+import com.vqn.bizflow.backend.inventory.service.InventoryHistoryService
 import com.vqn.bizflow.backend.order.dto.CreateOrderItemRequest
 import com.vqn.bizflow.backend.order.dto.CreateOrderRequest
 import com.vqn.bizflow.backend.order.dto.OrderResponse
@@ -46,6 +49,7 @@ class OrderService(
     private val orderMapper: OrderMapper,
     private val messageSource: MessageSource,
     private val auditService: AuditService,
+    private val inventoryHistoryService: InventoryHistoryService,
 ) {
     private val log = LoggerFactory.getLogger(OrderService::class.java)
 
@@ -139,6 +143,17 @@ class OrderService(
                     // → throw để rollback toàn bộ transaction
                     throw BadRequestException(msg("order.stock-insufficient"))
                 }
+                val updatedProduct = productRepo.findById(data.productId).orElseThrow()
+                inventoryHistoryService.log(
+                    ownerId = userId,
+                    productId = data.productId,
+                    movementType = MovementType.OUT,
+                    quantity = data.quantity,
+                    balanceAfter = updatedProduct.stock,
+                    refType = RefType.ORDER,
+                    refId = savedId,
+                    referenceNumber = saved.referenceNumber,
+                )
             }
             log.info("Order {} confirmed: stock deducted for {} items", refNumber, itemData.size)
         }
@@ -266,6 +281,18 @@ class OrderService(
                     log.warn(
                         "Cannot restore stock for product {} when cancelling order {}: product not found",
                         item.productId, entity.referenceNumber
+                    )
+                } else {
+                    val updatedProduct = productRepo.findById(item.productId).orElseThrow()
+                    inventoryHistoryService.log(
+                        ownerId = userId,
+                        productId = item.productId,
+                        movementType = MovementType.RETURN,
+                        quantity = item.quantity,
+                        balanceAfter = updatedProduct.stock,
+                        refType = RefType.ORDER,
+                        refId = cancelledOrderId,
+                        referenceNumber = entity.referenceNumber,
                     )
                 }
             }

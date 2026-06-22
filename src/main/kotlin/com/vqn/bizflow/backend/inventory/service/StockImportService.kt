@@ -8,11 +8,14 @@ import com.vqn.bizflow.backend.inventory.dto.CreateStockImportItemRequest
 import com.vqn.bizflow.backend.inventory.dto.CreateStockImportRequest
 import com.vqn.bizflow.backend.inventory.dto.StockImportResponse
 import com.vqn.bizflow.backend.inventory.dto.StockImportSummaryResponse
+import com.vqn.bizflow.backend.inventory.entity.MovementType
+import com.vqn.bizflow.backend.inventory.entity.RefType
 import com.vqn.bizflow.backend.inventory.entity.StockImportEntity
 import com.vqn.bizflow.backend.inventory.entity.StockImportItemEntity
 import com.vqn.bizflow.backend.inventory.mapper.StockImportMapper
 import com.vqn.bizflow.backend.inventory.repository.StockImportItemRepository
 import com.vqn.bizflow.backend.inventory.repository.StockImportRepository
+import com.vqn.bizflow.backend.inventory.service.InventoryHistoryService
 import com.vqn.bizflow.backend.product.repository.ProductRepository
 import org.slf4j.LoggerFactory
 import org.springframework.context.MessageSource
@@ -46,6 +49,7 @@ class StockImportService(
     private val stockImportMapper: StockImportMapper,
     private val messageSource: MessageSource,
     private val auditService: AuditService,
+    private val inventoryHistoryService: InventoryHistoryService,
 ) {
     private val log = LoggerFactory.getLogger(StockImportService::class.java)
 
@@ -113,6 +117,18 @@ class StockImportService(
                 log.warn(
                     "Cannot increment stock for product {} (import ref={}): product not found",
                     item.productId, refNumber
+                )
+            } else {
+                val updatedProduct = productRepo.findById(item.productId).orElseThrow()
+                inventoryHistoryService.log(
+                    ownerId = userId,
+                    productId = item.productId,
+                    movementType = MovementType.IN,
+                    quantity = item.quantity,
+                    balanceAfter = updatedProduct.stock,
+                    refType = RefType.STOCK_IMPORT,
+                    refId = savedId,
+                    referenceNumber = refNumber,
                 )
             }
         }
